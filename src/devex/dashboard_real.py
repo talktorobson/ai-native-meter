@@ -46,6 +46,7 @@ EXTRA_CSS = """
 .banner.real{background:#dcfce7;color:#166534;border-color:#86efac}
 .facts{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:13px;color:#334155;margin:4px 0 0}
 .facts b{color:#0f172a}
+tr.headline td{background:#eff6ff;font-weight:600}
 a{color:#1d4ed8}
 ul.limits{margin:0;padding-left:20px;color:#334155}ul.limits li{margin-bottom:6px}
 """
@@ -188,6 +189,29 @@ def _headline(view: real.RealView) -> str:
     )
 
 
+def _consolidation(view: real.RealView) -> str:
+    def cell(v: real.Variant, f: str, fmt: str) -> str:
+        b, c = getattr(v.baseline, f), getattr(v.current, f)
+        return (
+            f"<td>{fmt.format(b)} → <b>{fmt.format(c)}</b> "
+            f'<span class="small">({escape(real.change(b, c, fmt))})</span></td>'
+        )
+
+    def row(v: real.Variant) -> str:
+        name = escape(v.name).replace("`", "")
+        style = ' class="headline"' if v.headline else ""
+        cells = "".join(cell(v, f, fmt) for _, f, fmt in real.CONSOLIDATION_ROWS)
+        return f"<tr{style}><td>{name}</td>{cells}</tr>"
+
+    head = "".join(f"<th>{escape(label)}</th>" for label, _, _ in real.CONSOLIDATION_ROWS)
+    return (
+        '<div class="card"><table class="compact"><thead><tr><th>Comparison</th>'
+        f"{head}</tr></thead><tbody>{''.join(row(v) for v in view.variants)}</tbody></table>"
+        '<p class="small">The bold row is the headline used everywhere else on this page.</p>'
+        "</div>"
+    )
+
+
 def _guards(view: real.RealView) -> str:
     ref = view.reference
     blocks = ((view.before_label, view.signals),) + (
@@ -216,11 +240,21 @@ def render(view: real.RealView) -> str:
     )
     ref = view.reference
     reference = f" · pre-AI reference <b>{escape(ref.label)}</b>" if ref else ""
+    base_repos = view.baseline.repos
+    counted = (
+        "<span>Baseline counts "
+        + " + ".join(
+            f'<a href="https://github.com/{escape(r)}"><b>{escape(r)}</b></a>' for r in base_repos
+        )
+        + "</span>"
+        if len(base_repos) > 1
+        else ""
+    )
     facts = (
         f'<div class="facts"><span>Source <a href="{url}"><b>{repo}</b></a></span>'
         f"<span>Merged PRs into <b>{escape(snap.default_branch)}</b></span>"
         f"<span>Current <b>{escape(view.after_label)}</b> vs baseline "
-        f"<b>{escape(view.before_label)}</b>{reference}</span>"
+        f"<b>{escape(view.before_label)}</b>{reference}</span>{counted}"
         f"<span>Fetched <b>{escape(view.fetched_on)}</b> via the GitHub API</span>"
         f"<span><b>{len(view.prs):,}</b> PRs in the snapshot</span></div>"
     )
@@ -231,6 +265,13 @@ def render(view: real.RealView) -> str:
                 _headline(view),
                 f'<div class="tiles">{tiles}</div>',
             ),
+            dashboard._section(
+                "Repository consolidation",
+                real.moved_note(view).replace("`", ""),
+                _consolidation(view),
+            )
+            if view.variants
+            else "",
             dashboard._section(
                 "Weekly trend",
                 "Same week index in each window; per-engineer rates use the window's engineers. "

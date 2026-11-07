@@ -26,20 +26,24 @@ flowchart LR
 
 ## On real data: microsoft/vscode
 
-The same metrics engine, run on **9,797 real merged pull requests** from
+The same metrics engine, run on **10,670 real merged pull requests** from
 [**microsoft/vscode**](https://github.com/microsoft/vscode). The headline compares Q3 2026 with
 the same quarter a year earlier, Q3 2025, which controls for seasonality. Q1 2025, with no
-visible AI signal at all, stays on every chart as the pre-AI reference.
+visible AI signal at all, stays on every chart as the pre-AI reference. The Copilot Chat code
+moved into vscode in 2026 from
+[microsoft/vscode-copilot-chat](https://github.com/microsoft/vscode-copilot-chat), so the
+Q3 2025 baseline counts both repositories (like for like).
 
 [![Dashboard on real microsoft/vscode pull requests](docs/dashboard-real.png)](docs/dashboard-real.html)
 
-- **AI-assisted share 6% → 66%** of merged PRs year over year (0% in Q1 2025): Copilot
+- **AI-assisted share 5% → 66%** of merged PRs year over year (0% in Q1 2025): Copilot
   co-author trailers, the Copilot coding agent, Claude and Cursor trailers or markers.
-- **PRs per engineer per week +47% year over year, but only +9% against the pre-AI
-  reference.** Q3 2025 was the weakest quarter per engineer (1.33 vs 1.80 in Q1 2025), so
-  quote both. Merged PRs doubled (+102%), engineers +37%.
-- **Revert rate flat** (0.6% → 0.7%), and AI co-authored PRs revert no more than the rest.
-- **Review is the new bottleneck**: median PR size 18 → 121 lines, time to first human
+- **PRs per engineer per week +26% year over year, but only +9% against the pre-AI
+  reference.** Q3 2025 was the weakest quarter per engineer (1.56 vs 1.80 in Q1 2025), so
+  quote both. Merged PRs +47%, engineers +17%. Counting vscode alone gave +102% and +47%, an
+  overstatement corrected in [Repository consolidation](docs/06-real-data.md#repository-consolidation).
+- **Revert rate flat** (0.5% → 0.7%), and AI co-authored PRs revert no more than the rest.
+- **Review is the new bottleneck**: median PR size 20 → 121 lines, time to first human
   review 0.4 h → 1.2 h, and PRs with no AI signal grew and slowed too. No Goodhart guard fired.
 
 Reverts are only a change-failure proxy, attribution is incomplete, open source is not an
@@ -63,7 +67,7 @@ what public data cannot show: token cost, evals and routing. Open
 | 03 | [Architecture](docs/03-architecture.md) | Context layer, agentic coding, agentic review, AI SRE, routing, platform |
 | 04 | [Operating model](docs/04-operating-model.md) | Turning borrowed, part-time contributors into a dedicated team, and the first 90 days |
 | 05 | [Build vs partner](docs/05-build-vs-partner.md) | Two-stage make / co-build / buy engine: motion fit, evidence-discounted scoring, priced lock-in, win probability and flip points |
-| 06 | [Real data](docs/06-real-data.md) | The same metrics on 9,797 microsoft/vscode PRs across three quarters: method, AI-attribution heuristics, results and limits |
+| 06 | [Real data](docs/06-real-data.md) | The same metrics on 10,670 PRs from microsoft/vscode and its absorbed vscode-copilot-chat across three quarters: method, AI-attribution heuristics, repository consolidation, results and limits |
 | ADR | [Decisions](docs/adr) | Context before agents · precision before recall · route by evals · decisions as data |
 
 ## Run the reference implementation
@@ -73,7 +77,7 @@ Pure Python 3.11+, no runtime dependencies.
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-pytest -q          # 199 tests, offline
+pytest -q          # 220 tests, offline
 devex demo         # every module, printed as Markdown
 devex dashboard    # the same numbers as a static HTML page: docs/dashboard.html
 open docs/dashboard.html   # macOS; use xdg-open on Linux
@@ -86,7 +90,7 @@ devex dashboard --source real   # docs/dashboard-real.html
 |---|---|---|
 | `devex dashboard [--out PATH]` | [`dashboard.py`](src/devex/dashboard.py) | Self-contained HTML (inline CSS and SVG, no external assets) with KPI tiles, weekly trends, guards, evals, routing, the motion-fit map, contribution breakdown and win probabilities |
 | `devex report` | [`metrics.py`](src/devex/metrics.py) | Baseline vs rollout scorecard with Goodhart guards |
-| `devex fetch --repo OWNER/NAME --since DATE --until DATE` | [`github_source.py`](src/devex/github_source.py) | Real merged PRs from a public GitHub repo via `gh api graphql`, mapped to the same model and saved as an offline snapshot in `data/real/` |
+| `devex fetch --repo OWNER/NAME --since DATE --until DATE [--into OWNER/NAME --moved-to PATH]` | [`github_source.py`](src/devex/github_source.py) | Real merged PRs from a public GitHub repo via `gh api graphql`, mapped to the same model and saved as an offline snapshot in `data/real/`; `--into` adds a predecessor repository whose code moved into the snapshot's repo, so that window's baseline is like for like |
 | `devex report --source real`, `devex dashboard --source real` | [`real.py`](src/devex/real.py), [`dashboard_real.py`](src/devex/dashboard_real.py) | The scorecard, AI cohorts, attribution evidence and Goodhart guards on the snapshot; `docs/dashboard-real.html`. Current defaults to the latest window, baseline to the same quarter a year earlier; override with `--baseline DATE` / `--current DATE` |
 | `devex eval-review` | [`review_eval.py`](src/devex/review_eval.py) | Any review agent scored on a seeded-defect fintech benchmark |
 | `devex context` | [`context.py`](src/devex/context.py) | Curation-aware graph retrieval under a token budget, plus curation lint |
@@ -129,7 +133,9 @@ Highlights from [`docs/demo-output.md`](docs/demo-output.md) (synthetic data):
   assistance counts only when it leaves a trace (agent author, trailer, marker, label),
   token cost is not observable, and an open-source project is not an enterprise. It shows
   correlation across three quarters, not causation; comparing the same quarter a year apart
-  removes seasonality, nothing else. See [06 · Real data](docs/06-real-data.md).
+  removes seasonality, nothing else. Repositories change shape: vscode absorbed
+  vscode-copilot-chat, and a vscode-only comparison nearly doubled the apparent gain until the
+  baseline counted both. See [06 · Real data](docs/06-real-data.md).
 - The retrieval scorer is lexical plus graph traversal. A production system adds
   embeddings and a learned re-ranker; the contract (provenance, curation weighting,
   budgets) is what this code is meant to show.

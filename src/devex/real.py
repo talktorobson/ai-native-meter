@@ -1,6 +1,7 @@
 """The metrics engine run on a real snapshot: current window vs baseline window (year over year
 by default), an optional earlier reference window, AI cohorts, the evidence behind the AI
-attribution, and the Goodhart guards. Pure functions only."""
+attribution, the Goodhart guards, and how much a repository consolidation moves the headline.
+Pure functions only."""
 
 from __future__ import annotations
 
@@ -14,13 +15,17 @@ from devex.github_source import COHORTS, Snapshot
 from devex.metrics import PullRequest, Scorecard, Window
 
 __all__ = [
+    "CONSOLIDATION_ROWS",
     "LIMITS",
     "Period",
     "RealView",
+    "Variant",
     "build",
     "change",
     "cohorts",
+    "consolidation",
     "evidence_counts",
+    "moved_note",
     "pick_windows",
     "to_markdown",
     "window_label",
@@ -31,6 +36,8 @@ LIMITS = (
     "are invisible, so the true failure rate is higher on both sides.",
     "AI attribution is incomplete: a window with no observable signal is not a window with no AI "
     "use, and assistance without a trailer, marker or agent author is counted as human.",
+    "Repositories change shape: code that moved in from another repository inflates a "
+    "before/after comparison unless the baseline counts the old repository too.",
     "Correlation is not causation: team size, roadmap, release cadence and tooling all changed "
     "between the windows. Comparing the same quarter a year apart removes seasonality, "
     "nothing else.",
@@ -62,6 +69,17 @@ class Period:
     card: Scorecard
     cohorts: dict[str, Scorecard]
     evidence: tuple[tuple[str, int], ...]
+    repos: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Variant:
+    """One way of drawing the repository boundary for the baseline vs current comparison."""
+
+    name: str
+    baseline: Scorecard
+    current: Scorecard
+    headline: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +90,7 @@ class RealView:
     fetched_on: str
     signals: tuple[str, ...]  # current vs baseline
     signals_reference: tuple[str, ...]  # current vs reference, empty without a reference
+    variants: tuple[Variant, ...] = ()  # empty unless the baseline counts a predecessor repo
 
     def _role(self, role: str) -> Period | None:
         return next((p for p in self.periods if p.role == role), None)
@@ -183,6 +202,54 @@ def pick_windows(
     return (earlier[0] if earlier else None), base, cur
 
 
+def _card(prs: Sequence[PullRequest], window: Window) -> Scorecard:
+    return metrics.scorecard(prs, github_source.engineers_in(prs, window), window)
+
+
+def _under(scope: str | None, path: str) -> bool:
+    return bool(path) and scope is not None and (scope == path or scope.startswith(f"{path}/"))
+
+
+def consolidation(
+    snapshot: Snapshot, prs: Sequence[PullRequest], before: Window, after: Window
+) -> tuple[Variant, ...]:
+    """The comparison with and without the predecessor repositories fetched for the baseline,
+    plus, where file scopes are known, the current window without PRs confined to the paths
+    the predecessors' code moved to."""
+    moved = tuple(p for p in snapshot.predecessors if p.window == before)
+    if not moved:
+        return ()
+    primary = tuple(pr for pr in prs if pr.id.startswith(f"{snapshot.repo}#"))
+    scopes = {github_source.pr_id(r, snapshot.repo): r.get("scope") for r in snapshot.records}
+    paths = tuple(p.moved_to for p in moved if p.moved_to)
+    outside = tuple(
+        pr for pr in primary if not any(_under(scopes.get(pr.id), path) for path in paths)
+    )
+    known = any(scopes.get(pr.id) is not None for pr in metrics.merged_in(primary, after))
+    label, repos = window_label(before), " + ".join(p.repo for p in moved)
+    return (
+        Variant(f"{snapshot.repo} only (uncorrected)", _card(primary, before), _card(prs, after)),
+        Variant(
+            f"{label} counts {repos} (headline)",
+            _card(prs, before),
+            _card(prs, after),
+            headline=True,
+        ),
+        *(
+            (
+                Variant(
+                    f"{window_label(after)} without PRs only in "
+                    + ", ".join(f"`{path}`" for path in paths),
+                    _card(primary, before),
+                    _card(outside, after),
+                ),
+            )
+            if paths and known
+            else ()
+        ),
+    )
+
+
 def build(snapshot: Snapshot, baseline: str | None = None, current: str | None = None) -> RealView:
     """Score the reference, baseline and current windows chosen by ``pick_windows``."""
     reference_w, before_w, after_w = pick_windows(
@@ -196,9 +263,10 @@ def build(snapshot: Snapshot, baseline: str | None = None, current: str | None =
             role=role,
             window=window,
             label=window_label(window),
-            card=metrics.scorecard(prs, github_source.engineers_in(prs, window), window),
+            card=_card(prs, window),
             cohorts=cohorts(prs, evidence, window),
             evidence=evidence_counts(prs, evidence, window),
+            repos=snapshot.repos_in(window),
         )
 
     roles = (("reference", reference_w), ("baseline", before_w), ("current", after_w))
@@ -216,6 +284,7 @@ def build(snapshot: Snapshot, baseline: str | None = None, current: str | None =
         signals_reference=(
             metrics.gaming_signals(reference, by_role["current"]) if reference else ()
         ),
+        variants=consolidation(snapshot, prs, before_w, after_w),
     )
 
 
@@ -251,6 +320,67 @@ def _evidence_table(view: RealView) -> str:
     rule = "|---|" + "---|" * len(view.periods)
     rows = (f"| `{k}` | " + " | ".join(f"{c.get(k, 0):,}" for c in counts) + " |" for k in kinds)
     return "\n".join((header, rule, *rows)) if kinds else "No AI evidence on merged PRs."
+
+
+CONSOLIDATION_ROWS = (
+    ("Merged PRs", "merged_prs", "{:,}"),
+    ("Active engineers", "engineers", "{:,}"),
+    ("PRs / engineer / week", "prs_per_engineer_week", "{:.2f}"),
+    ("AI-assisted share", "ai_assisted_share", "{:.0%}"),
+    ("Revert rate", "change_failure_rate", "{:.1%}"),
+    ("Median PR size", "median_pr_size_lines", "{:.0f}"),
+)
+
+
+def moved_note(view: RealView) -> str:
+    """One sentence on which repositories each window counts, or "" without predecessors."""
+    snapshot, base = view.snapshot, view.baseline
+    moved = [p for p in snapshot.predecessors if p.window == base.window]
+    if not moved:
+        return ""
+    where = "; ".join(
+        f"{p.repo}'s code now lives in {snapshot.repo}"
+        + (f" under `{p.moved_to}`" if p.moved_to else "")
+        for p in moved
+    )
+    others = [p.label for p in view.periods if p.repos == (snapshot.repo,)]
+    alone = (
+        f"; {', '.join(others[:-1])}{' and ' if len(others) > 1 else ''}{others[-1]} count "
+        f"{snapshot.repo} alone."
+        if others
+        else "."
+    )
+    return (
+        f"{where}. The {base.label} baseline counts {' + '.join(base.repos)}, so both windows "
+        f"cover the same code{alone}"
+    )
+
+
+def _consolidation(view: RealView) -> tuple[str, ...]:
+    if not view.variants:
+        return ()
+    base, cur = view.baseline.label, view.current.label
+
+    def cell(v: Variant, f: str, fmt: str) -> str:
+        b, c = getattr(v.baseline, f), getattr(v.current, f)
+        return f"{fmt.format(b)} → {fmt.format(c)} ({change(b, c, fmt)})"
+
+    def row(v: Variant) -> str:
+        name = f"**{v.name}**" if v.headline else v.name
+        return (
+            f"| {name} | " + " | ".join(cell(v, f, fmt) for _, f, fmt in CONSOLIDATION_ROWS) + " |"
+        )
+
+    return (
+        "",
+        f"**Repository consolidation** ({cur} vs {base})",
+        "",
+        moved_note(view),
+        "",
+        "| Comparison | " + " | ".join(label for label, _, _ in CONSOLIDATION_ROWS) + " |",
+        "|---|" + "---|" * len(CONSOLIDATION_ROWS),
+        *(row(v) for v in view.variants),
+    )
 
 
 def _guards(view: RealView) -> tuple[str, ...]:
@@ -298,6 +428,7 @@ def to_markdown(view: RealView) -> str:
             "|---|" + "---|" * (len(shown) + len(compared)),
             *(row(label, f, fmt) for label, f, fmt in ROWS),
             f"| Token cost per merged PR | {unobservable} | {na} |",
+            *_consolidation(view),
             "",
             "**AI cohorts** (cohort engineers are the distinct authors in that cohort)",
             "",

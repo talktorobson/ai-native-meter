@@ -69,8 +69,9 @@ def _review_reports(
 def _snapshot_path(args: argparse.Namespace) -> Path:
     if args.snapshot:
         return Path(args.snapshot)
-    if args.repo:
-        return DATA / "real" / f"{args.repo.replace('/', '-').lower()}.json"
+    repo = getattr(args, "into", None) or args.repo
+    if repo:
+        return DATA / "real" / f"{repo.replace('/', '-').lower()}.json"
     return SNAPSHOT
 
 
@@ -88,16 +89,38 @@ def cmd_fetch(args: argparse.Namespace) -> str:
     window = metrics.Window(datetime.fromisoformat(args.since), datetime.fromisoformat(args.until))
     path = _snapshot_path(args)
     base = github_source.load_snapshot(path) if path.exists() else None
+    if args.into:
+        _merged(args, base, window, "", "", ())  # fail before the network, not after
     branch, records = github_source.fetch(
         args.repo, window, log=lambda line: print(line, file=sys.stderr)
     )
     fetched_on = args.fetched_on or date.today().isoformat()
-    snapshot = github_source.merge_snapshot(base, args.repo, branch, window, fetched_on, records)
+    snapshot = _merged(args, base, window, fetched_on, branch, records)
     github_source.write_snapshot(snapshot, path)
     return (
         f"Fetched {len(records):,} merged PRs from {args.repo} ({args.since} to {args.until}); "
         f"{path} now holds {len(snapshot.records):,} PRs in {len(snapshot.windows)} window(s)."
     )
+
+
+def _merged(
+    args: argparse.Namespace,
+    base: github_source.Snapshot | None,
+    window: metrics.Window,
+    fetched_on: str,
+    branch: str,
+    records: tuple[dict, ...],
+) -> github_source.Snapshot:
+    if not args.into:
+        return github_source.merge_snapshot(base, args.repo, branch, window, fetched_on, records)
+    if base is None or base.repo.lower() != args.into.lower():
+        raise SystemExit(f"--into needs an existing snapshot of {args.into}")
+    try:
+        return github_source.merge_predecessor(
+            base, args.repo, window, fetched_on, args.moved_to or "", records
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
 
 
 def cmd_report(args: argparse.Namespace) -> str:
@@ -332,6 +355,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--since", help="fetch: window start date, inclusive (YYYY-MM-DD)")
     parser.add_argument("--until", help="fetch: window end date, exclusive (YYYY-MM-DD)")
     parser.add_argument("--fetched-on", help="fetch: date to record (default today)")
+    parser.add_argument(
+        "--into",
+        help="fetch: add --repo as a predecessor of this OWNER/NAME snapshot, same window",
+    )
+    parser.add_argument(
+        "--moved-to", help="fetch --into: path where the predecessor's code now lives"
+    )
     parser.add_argument(
         "--baseline",
         help="real: start date of the baseline window (default: same quarter a year before "

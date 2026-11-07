@@ -70,3 +70,29 @@ def three_window_file(tmp_path, three_window_snapshot) -> Path:
     path = tmp_path / "three.json"
     github_source.write_snapshot(three_window_snapshot, path)
     return path
+
+
+PRED = "microsoft/vscode-copilot-chat"
+
+
+@pytest.fixture(scope="session")
+def consolidated_snapshot(three_window_snapshot) -> github_source.Snapshot:
+    """MID also counts a predecessor repo whose code moved to ``extensions/copilot``. Its #301
+    reuses a primary PR number, bob works in both repos, and its #311 reverts its own #301."""
+    by_number = {r["number"]: r for r in three_window_snapshot.records}
+    year = MID.start - AFTER.start
+    predecessor = (
+        _shifted(by_number[202], 301, year),
+        {**_shifted(by_number[208], 310, year), "author": "frank"},
+        {**_shifted(by_number[207], 311, year), "author": "frank", "reverts": [301]},
+    )
+    current = (
+        {**by_number[207], "scope": "src/vs"},
+        {**_shifted(by_number[207], 210, timedelta(hours=1)), "scope": "extensions/copilot"},
+    )
+    primary = github_source.merge_snapshot(
+        three_window_snapshot, REPO, "main", AFTER, "2026-11-07", current
+    )
+    return github_source.merge_predecessor(
+        primary, PRED, MID, "2026-11-07", "extensions/copilot", predecessor
+    )

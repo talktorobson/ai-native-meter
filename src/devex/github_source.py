@@ -26,6 +26,12 @@ Heuristics (documented in ``docs/06-real-data.md``):
   ``copilot-pull-request-reviewer`` are bots and are skipped.
 * **Change failure proxy.** A PR is ``reverted`` if a later merged PR whose title leads with
   "revert" references it, within ``REVERT_HORIZON`` of its merge.
+* **Scope.** The common directory of a PR's changed files, ``SCOPE_DEPTH`` levels deep, so PRs
+  confined to one area (``extensions/copilot``) can be set aside in a sensitivity check.
+* **Repository consolidation.** A predecessor repository whose code later moved into the
+  primary one (``microsoft/vscode-copilot-chat`` into ``microsoft/vscode/extensions/copilot``)
+  is fetched into the same window, so a baseline before the move covers the same work as a
+  window after it. Engineers are distinct logins across repositories.
 """
 
 from __future__ import annotations
@@ -38,6 +44,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from posixpath import commonpath
 from typing import Any
 
 from devex.metrics import PullRequest, Window, merged_in
@@ -49,6 +56,8 @@ __all__ = [
     "COHORTS",
     "COMMITS_SCANNED",
     "REVERT_HORIZON",
+    "SCOPE_DEPTH",
+    "Predecessor",
     "Snapshot",
     "ai_cohort",
     "ai_evidence",
@@ -59,8 +68,12 @@ __all__ = [
     "is_ai_agent",
     "is_automation",
     "load_snapshot",
+    "merge_predecessor",
     "merge_snapshot",
+    "pr_id",
+    "record_repo",
     "revert_targets",
+    "scope",
     "search_queries",
     "to_pull_requests",
     "to_record",
@@ -104,6 +117,7 @@ AI_LABELS = frozenset({"ai-generated", "ai-assisted", "copilot-generated", "agen
 AUTOMATION_LOGINS = frozenset({"dependabot", "renovate", "renovate-bot", "greenkeeper", "snyk-bot"})
 COMMITS_SCANNED = 30
 REVERT_HORIZON = timedelta(days=28)
+SCOPE_DEPTH = 2
 SEARCH_CAP = 1000
 
 _CO_AUTHOR = re.compile(r"^\s*co-authored-by:\s*(?P<who>[^\n]*)$", re.IGNORECASE | re.MULTILINE)
@@ -215,7 +229,18 @@ def revert_targets(node: Node, repo: str) -> tuple[int, ...]:
     return tuple(sorted({n for n in refs if n != own}))
 
 
+def scope(node: Node) -> str | None:
+    """Common directory of the changed files, at most ``SCOPE_DEPTH`` levels; "" when they span
+    the root, ``None`` when the file list is missing or truncated."""
+    files = node.get("files")
+    paths = [f["path"] for f in (files or {}).get("nodes") or ()]
+    if not paths or files.get("totalCount", len(paths)) > len(paths):
+        return None
+    return commonpath(["/".join(path.split("/")[:-1][:SCOPE_DEPTH]) for path in paths])
+
+
 def to_record(node: Node, repo: str) -> Record:
+    found = scope(node)
     return {
         "number": int(node["number"]),
         "author": driver(node),
@@ -227,6 +252,7 @@ def to_record(node: Node, repo: str) -> Record:
         "bot": is_automation(node.get("author")),
         "ai": list(ai_evidence(node)),
         "reverts": list(revert_targets(node, repo)),
+        **({"scope": found} if found is not None else {}),
     }
 
 
@@ -237,44 +263,73 @@ def _when(text: str | None) -> datetime | None:
 
 
 @dataclass(frozen=True, slots=True)
+class Predecessor:
+    """A repository whose code later moved into the primary one, fetched for one window."""
+
+    repo: str
+    window: Window
+    fetched_on: str
+    moved_to: str  # path of its code in the primary repository
+
+
+@dataclass(frozen=True, slots=True)
 class Snapshot:
     repo: str
     default_branch: str
     windows: tuple[tuple[Window, str], ...]  # (window, fetched_on)
     records: tuple[Record, ...]
+    predecessors: tuple[Predecessor, ...] = ()
 
     @property
     def url(self) -> str:
         return f"https://github.com/{self.repo}"
 
     def evidence(self) -> dict[str, tuple[str, ...]]:
-        return {f"{self.repo}#{r['number']}": tuple(r["ai"]) for r in self.records}
+        return {pr_id(r, self.repo): tuple(r["ai"]) for r in self.records}
+
+    def repos_in(self, window: Window) -> tuple[str, ...]:
+        """The primary repository, then every predecessor fetched for this window."""
+        return (self.repo, *(p.repo for p in self.predecessors if p.window == window))
 
 
-def _reverted(records: Sequence[Record]) -> frozenset[int]:
-    merged = {r["number"]: _when(r["merged"]) for r in records}
+def record_repo(record: Record, primary: str) -> str:
+    """Records of the primary repository carry no ``repo`` key."""
+    return record.get("repo", primary)
+
+
+def pr_id(record: Record, primary: str) -> str:
+    return f"{record_repo(record, primary)}#{record['number']}"
+
+
+def _key(record: Record) -> tuple[str, int]:
+    return record.get("repo", ""), record["number"]
+
+
+def _reverted(records: Sequence[Record], primary: str) -> frozenset[str]:
+    """Reverts only reference PRs of their own repository."""
+    merged = {_key(r): _when(r["merged"]) for r in records}
     return frozenset(
-        target
+        f"{record_repo(r, primary)}#{target}"
         for r in records
         for target in r["reverts"]
-        if target in merged
-        and timedelta(0) <= _when(r["merged"]) - merged[target] <= REVERT_HORIZON
+        if (key := (r.get("repo", ""), target)) in merged
+        and timedelta(0) <= _when(r["merged"]) - merged[key] <= REVERT_HORIZON
     )
 
 
 def to_pull_requests(snapshot: Snapshot) -> tuple[PullRequest, ...]:
     """Token cost and incidents are not observable in public data, so they stay at zero."""
-    reverted = _reverted(snapshot.records)
+    reverted = _reverted(snapshot.records, snapshot.repo)
     return tuple(
         PullRequest(
-            id=f"{snapshot.repo}#{r['number']}",
+            id=pr_id(r, snapshot.repo),
             author=r["author"],
             opened_at=_when(r["created"]),
             merged_at=_when(r["merged"]),
             first_review_at=_when(r["review"]),
             lines_changed=r["lines"],
             ai_assisted=bool(r["ai"]),
-            reverted=r["number"] in reverted,
+            reverted=pr_id(r, snapshot.repo) in reverted,
             is_bot=r["bot"],
         )
         for r in snapshot.records
@@ -282,7 +337,8 @@ def to_pull_requests(snapshot: Snapshot) -> tuple[PullRequest, ...]:
 
 
 def engineers_in(prs: Iterable[PullRequest], window: Window) -> int:
-    """Active engineers: distinct humans credited with at least one merged PR in the window."""
+    """Active engineers: distinct humans credited with at least one merged PR in the window,
+    across repositories (a login is one engineer)."""
     return len({pr.author for pr in merged_in(prs, window)})
 
 
@@ -300,20 +356,32 @@ def ai_cohort(evidence: Sequence[str]) -> str:
     return COHORTS[2] if kinds else COHORTS[3]
 
 
+def _window(raw: Mapping[str, str]) -> Window:
+    return Window(datetime.fromisoformat(raw["since"]), datetime.fromisoformat(raw["until"]))
+
+
+def _window_json(window: Window) -> dict[str, str]:
+    return {"since": f"{window.start:%Y-%m-%d}", "until": f"{window.end:%Y-%m-%d}"}
+
+
 def load_snapshot(path: str | Path) -> Snapshot:
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
     return Snapshot(
         repo=raw["repo"],
         default_branch=raw["default_branch"],
-        windows=tuple(
-            (
-                Window(datetime.fromisoformat(w["since"]), datetime.fromisoformat(w["until"])),
-                w["fetched_on"],
-            )
-            for w in raw["windows"]
-        ),
+        windows=tuple((_window(w), w["fetched_on"]) for w in raw["windows"]),
         records=tuple(raw["pull_requests"]),
+        predecessors=tuple(
+            Predecessor(p["repo"], _window(p), p["fetched_on"], p["moved_to"])
+            for p in raw.get("predecessors", ())
+        ),
     )
+
+
+def _sorted_records(records: Iterable[Record]) -> tuple[Record, ...]:
+    """Newer records replace older ones with the same repository and number."""
+    by_key = {_key(r): r for r in records}
+    return tuple(by_key[k] for k in sorted(by_key))
 
 
 def merge_snapshot(
@@ -325,16 +393,44 @@ def merge_snapshot(
     records: Iterable[Record],
 ) -> Snapshot:
     """Add one fetched window to a snapshot; newer records replace older ones by number."""
-    old_windows = base.windows if base and base.repo == repo else ()
-    old_records = base.records if base and base.repo == repo else ()
-    by_number = {r["number"]: r for r in (*old_records, *records)}
+    same = base is not None and base.repo == repo
+    old_windows = base.windows if same else ()
     windows = {w.start: (w, f) for w, f in (*old_windows, (window, fetched_on))}
     return Snapshot(
         repo=repo,
         default_branch=default_branch,
         windows=tuple(windows[k] for k in sorted(windows)),
-        records=tuple(by_number[n] for n in sorted(by_number)),
+        records=_sorted_records((*(base.records if same else ()), *records)),
+        predecessors=base.predecessors if same else (),
     )
+
+
+def merge_predecessor(
+    base: Snapshot,
+    repo: str,
+    window: Window,
+    fetched_on: str,
+    moved_to: str,
+    records: Iterable[Record],
+) -> Snapshot:
+    """Add a predecessor repository's PRs to an already fetched window of the primary one."""
+    if repo.lower() == base.repo.lower():
+        raise ValueError(f"{repo} is the snapshot's own repository")
+    if window not in {w for w, _ in base.windows}:
+        raise ValueError(f"fetch {base.repo} for {window_text(window)} first")
+    kept = tuple(p for p in base.predecessors if (p.repo, p.window) != (repo, window))
+    added = Predecessor(repo, window, fetched_on, moved_to)
+    return Snapshot(
+        repo=base.repo,
+        default_branch=base.default_branch,
+        windows=base.windows,
+        records=_sorted_records((*base.records, *({**r, "repo": repo} for r in records))),
+        predecessors=tuple(sorted((*kept, added), key=lambda p: (p.window.start, p.repo))),
+    )
+
+
+def window_text(window: Window) -> str:
+    return f"{window.start:%Y-%m-%d} to {window.end:%Y-%m-%d}"
 
 
 def write_snapshot(snapshot: Snapshot, path: str | Path) -> None:
@@ -345,10 +441,22 @@ def write_snapshot(snapshot: Snapshot, path: str | Path) -> None:
         "url": snapshot.url,
         "default_branch": snapshot.default_branch,
         "heuristics": "devex.github_source (see docs/06-real-data.md)",
-        "windows": [
-            {"since": f"{w.start:%Y-%m-%d}", "until": f"{w.end:%Y-%m-%d}", "fetched_on": f}
-            for w, f in snapshot.windows
-        ],
+        "windows": [{**_window_json(w), "fetched_on": f} for w, f in snapshot.windows],
+        **(
+            {
+                "predecessors": [
+                    {
+                        "repo": p.repo,
+                        **_window_json(p.window),
+                        "fetched_on": p.fetched_on,
+                        "moved_to": p.moved_to,
+                    }
+                    for p in snapshot.predecessors
+                ]
+            }
+            if snapshot.predecessors
+            else {}
+        ),
     }
     lines = ",\n".join(json.dumps(r, separators=(",", ":")) for r in snapshot.records)
     header = json.dumps(head, indent=1)[:-2]
@@ -374,6 +482,7 @@ query($q: String!, $after: String) {
       labels(first: 20) { nodes { name } }
       reviews(first: 20) { nodes { createdAt author { login __typename } } }
       commits(last: COMMITS) { nodes { commit { message } } }
+      files(first: 100) { totalCount nodes { path } }
     } }
   }
 }
