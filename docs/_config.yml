@@ -1,0 +1,35 @@
+title: AI-native developer experience
+description: >-
+  A strategy and a working reference implementation for making a large engineering
+  organisation measurably faster with AI, without paying for it in quality, cost or trust.
+url: https://talktorobson.github.io
+baseurl: /ai-native-devex
+repository: talktorobson/ai-native-devex
+repository_url: https://github.com/talktorobson/ai-native-devex
+lang: en
+theme: jekyll-theme-cayman
+
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+
+plugins:
+  - jekyll-relative-links
+  - jekyll-optional-front-matter
+  - jekyll-titles-from-headings
+  - jekyll-seo-tag
+
+relative_links:
+  enabled: true
+  collections: false
+
+titles_from_headings:
+  enabled: true
+  strip_title: true
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default

@@ -1,9 +1,9 @@
 # 05 · Build vs partner: decisions as data
 
-Implemented in [`motion_fit.py`](../src/devex/motion_fit.py) (Stage 1),
-[`vendor_scorecard.py`](../src/devex/vendor_scorecard.py) (Stage 2),
-[`robustness.py`](../src/devex/robustness.py) (Monte Carlo and sensitivity) and
-[`decision.py`](../src/devex/decision.py) (verdict, rationale and memo). Run it with
+Implemented in [`motion_fit.py`](https://github.com/talktorobson/ai-native-devex/blob/main/src/devex/motion_fit.py) (Stage 1),
+[`vendor_scorecard.py`](https://github.com/talktorobson/ai-native-devex/blob/main/src/devex/vendor_scorecard.py) (Stage 2),
+[`robustness.py`](https://github.com/talktorobson/ai-native-devex/blob/main/src/devex/robustness.py) (Monte Carlo and sensitivity) and
+[`decision.py`](https://github.com/talktorobson/ai-native-devex/blob/main/src/devex/decision.py) (verdict, rationale and memo). Run it with
 `devex decide`, `devex decide --memo` or `devex decide --weight review_quality=0.5`.
 Decision record: [ADR-0004](adr/0004-decisions-as-data.md).
 
@@ -104,7 +104,7 @@ candidate is never ranked, simulated or allowed to win.
 
 | Criterion | Raw evidence | Normalisation |
 |---|---|---|
-| review quality | F0.5 on the seeded-defect benchmark ([review_eval](../src/devex/review_eval.py)); the in-house option is **measured live** | as is |
+| review quality | F0.5 on the seeded-defect benchmark ([review_eval](https://github.com/talktorobson/ai-native-devex/blob/main/src/devex/review_eval.py)); the in-house option is **measured live** | as is |
 | 3-year TCO | TCO model below | linear, \$1.5M → 1, \$5M → 0 |
 | time to value | weeks to production | linear, 4 wk → 1, 40 wk → 0 |
 | operability | 0–1 rubric: SLOs, on-call, audit trails | as is |

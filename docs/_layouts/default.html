@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="{{ site.lang | default: 'en' }}">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#157878">
+    {% seo %}
+    <link rel="stylesheet" href="{{ '/assets/css/style.css?v=' | append: site.github.build_revision | relative_url }}">
+    <style>
+      .site-nav { margin-top: 1rem; }
+      .main-content img { max-width: 100%; }
+    </style>
+    {% include mermaid.html %}
+  </head>
+  <body>
+    <a id="skip-to-content" href="#content">Skip to the content.</a>
+
+    <header class="page-header" role="banner">
+      <h1 class="project-name">{{ page.title | default: site.title }}</h1>
+      <h2 class="project-tagline">{{ page.description | default: site.description }}</h2>
+      <nav class="site-nav">
+        <a href="{{ '/' | relative_url }}" class="btn">Home</a>
+        <a href="{{ '/dashboard-real.html' | relative_url }}" class="btn">Real-data dashboard</a>
+        <a href="{{ '/06-real-data.html' | relative_url }}" class="btn">Real data</a>
+        <a href="{{ site.repository_url }}" class="btn">View on GitHub</a>
+      </nav>
+    </header>
+
+    <main id="content" class="main-content" role="main">
+      {{ content }}
+
+      <footer class="site-footer">
+        <span class="site-footer-owner">
+          <a href="{{ site.repository_url }}">{{ site.repository }}</a> · MIT licensed ·
+          written by <a href="https://github.com/talktorobson">Robson Reis</a>
+        </span>
+      </footer>
+    </main>
+  </body>
+</html>

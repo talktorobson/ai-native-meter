@@ -28,7 +28,7 @@ metric it moves.
 **Problem.** Agents and reviewers are only as good as the context they receive, and
 enterprise knowledge is scattered, stale, contradictory and ownerless.
 
-**Design stance** (reference: [`context.py`](../src/devex/context.py)):
+**Design stance** (reference: [`context.py`](https://github.com/talktorobson/ai-native-devex/blob/main/src/devex/context.py)):
 
 - **Ontology first.** A small set of entity kinds (service, repo, API, doc, runbook,
   ADR, ticket, incident, team) and typed relations (`owns`, `depends_on`, `governs`,
@@ -79,7 +79,7 @@ task-success eval built from 100 historical tickets with their merged PRs as ora
 **Problem.** AI-authored PR volume moves the bottleneck to review and threatens the
 change failure rate.
 
-**Design stance** (reference: [`review_eval.py`](../src/devex/review_eval.py),
+**Design stance** (reference: [`review_eval.py`](https://github.com/talktorobson/ai-native-devex/blob/main/src/devex/review_eval.py),
 [ADR-0002](adr/0002-precision-over-recall-in-review.md)):
 
 - **Layered review.** Deterministic linters and SAST first, AI reviewer second, humans
@@ -121,7 +121,7 @@ in-house diagnosis on the same evidence.
 **Problem.** Sending every request to the frontier model is the easiest way to make AI
 spend grow faster than value.
 
-**Design stance** (reference: [`routing.py`](../src/devex/routing.py),
+**Design stance** (reference: [`routing.py`](https://github.com/talktorobson/ai-native-devex/blob/main/src/devex/routing.py),
 [ADR-0003](adr/0003-route-by-evals.md)):
 
 - Classify each request (trivial / standard / complex) from cheap signals.

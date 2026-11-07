@@ -78,7 +78,7 @@ invites the wrong behaviour. The goal is shipped, working software per engineer.
 
 ## What makes this credible
 
-The [reference implementation](../src/devex) is deliberately small, but every
+The [reference implementation](https://github.com/talktorobson/ai-native-devex/tree/main/src/devex) is deliberately small, but every
 claim above maps to running, tested code: the scorecard and Goodhart guards, the
 seeded-defect review eval, curation-aware retrieval, eval-driven model routing and
 the build-vs-partner scorecard. See [`demo-output.md`](demo-output.md).
