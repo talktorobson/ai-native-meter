@@ -1,20 +1,25 @@
 """Command line entry point: ``devex <command>``. Commands print Markdown; ``dashboard``
-writes a self-contained HTML file."""
+writes a self-contained HTML file; ``fetch`` snapshots real PRs from a public GitHub repo.
+``--source real`` runs ``report`` and ``dashboard`` on that snapshot instead of synthetic data."""
 
 from __future__ import annotations
 
 import argparse
+import sys
 from collections.abc import Callable, Sequence
-from datetime import datetime
+from datetime import date, datetime
 from functools import reduce
 from pathlib import Path
 
 from devex import (
     context,
     dashboard,
+    dashboard_real,
     decision,
+    github_source,
     metrics,
     motion_fit,
+    real,
     review_eval,
     routing,
     synthetic,
@@ -22,6 +27,7 @@ from devex import (
 )
 
 DATA = Path(__file__).resolve().parents[2] / "data"
+SNAPSHOT = DATA / "real" / "microsoft-vscode.json"
 ENGINEERS = 120
 
 
@@ -60,7 +66,39 @@ def _review_reports(
     )
 
 
-def cmd_report(_: argparse.Namespace) -> str:
+def _snapshot_path(args: argparse.Namespace) -> Path:
+    if args.snapshot:
+        return Path(args.snapshot)
+    if args.repo:
+        return DATA / "real" / f"{args.repo.replace('/', '-').lower()}.json"
+    return SNAPSHOT
+
+
+def _real_view(args: argparse.Namespace) -> real.RealView:
+    return real.build(github_source.load_snapshot(_snapshot_path(args)))
+
+
+def cmd_fetch(args: argparse.Namespace) -> str:
+    if not (args.repo and args.since and args.until) or args.repo.count("/") != 1:
+        raise SystemExit("fetch needs --repo OWNER/NAME, --since YYYY-MM-DD and --until YYYY-MM-DD")
+    window = metrics.Window(datetime.fromisoformat(args.since), datetime.fromisoformat(args.until))
+    path = _snapshot_path(args)
+    base = github_source.load_snapshot(path) if path.exists() else None
+    branch, records = github_source.fetch(
+        args.repo, window, log=lambda line: print(line, file=sys.stderr)
+    )
+    fetched_on = args.fetched_on or date.today().isoformat()
+    snapshot = github_source.merge_snapshot(base, args.repo, branch, window, fetched_on, records)
+    github_source.write_snapshot(snapshot, path)
+    return (
+        f"Fetched {len(records):,} merged PRs from {args.repo} ({args.since} to {args.until}); "
+        f"{path} now holds {len(snapshot.records):,} PRs in {len(snapshot.windows)} window(s)."
+    )
+
+
+def cmd_report(args: argparse.Namespace) -> str:
+    if args.source == "real":
+        return real.to_markdown(_real_view(args))
     before_prs, after_prs = _rollout()
     before = metrics.scorecard(before_prs, ENGINEERS, synthetic.QUARTER_1)
     after = metrics.scorecard(after_prs, ENGINEERS, synthetic.QUARTER_2)
@@ -232,9 +270,15 @@ def dashboard_data(args: argparse.Namespace) -> dashboard.DashboardData:
 
 
 def cmd_dashboard(args: argparse.Namespace) -> str:
-    out = Path(args.out)
+    is_real = args.source == "real"
+    out = Path(args.out or ("docs/dashboard-real.html" if is_real else "docs/dashboard.html"))
+    html = (
+        dashboard_real.render(_real_view(args))
+        if is_real
+        else dashboard.render(dashboard_data(args))
+    )
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(dashboard.render(dashboard_data(args)), encoding="utf-8")
+    out.write_text(html, encoding="utf-8")
     return f"Dashboard written to {out}"
 
 
@@ -269,7 +313,21 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--budget", type=int, default=400)
     parser.add_argument("--now", default="2026-11-01T00:00:00")
     parser.add_argument("--min-quality", type=float, default=0.9)
-    parser.add_argument("--out", default="docs/dashboard.html", help="dashboard output path")
+    parser.add_argument(
+        "--out",
+        help="dashboard output path (default docs/dashboard.html, or docs/dashboard-real.html)",
+    )
+    parser.add_argument(
+        "--source",
+        choices=("synthetic", "real"),
+        default="synthetic",
+        help="report/dashboard: synthetic rollout, or the committed real-PR snapshot",
+    )
+    parser.add_argument("--snapshot", help=f"real-PR snapshot path (default {SNAPSHOT.name})")
+    parser.add_argument("--repo", help="fetch: public GitHub repo as OWNER/NAME")
+    parser.add_argument("--since", help="fetch: window start date, inclusive (YYYY-MM-DD)")
+    parser.add_argument("--until", help="fetch: window end date, exclusive (YYYY-MM-DD)")
+    parser.add_argument("--fetched-on", help="fetch: date to record (default today)")
     commands = {
         "report": cmd_report,
         "eval-review": cmd_eval_review,
@@ -278,6 +336,7 @@ def build_parser() -> argparse.ArgumentParser:
         "decide": cmd_decide,
         "demo": cmd_demo,
         "dashboard": cmd_dashboard,
+        "fetch": cmd_fetch,
     }
     parser.add_argument("command", choices=commands)
     parser.set_defaults(commands=commands)

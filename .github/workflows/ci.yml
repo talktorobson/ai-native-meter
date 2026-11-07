@@ -26,3 +26,7 @@ jobs:
       - run: devex demo
       - name: Dashboard is generated and committed up to date
         run: devex dashboard && git diff --exit-code -- docs/dashboard.html
+      - name: Real-data report and dashboard run offline from the committed snapshot
+        run: |
+          devex report --source real
+          devex dashboard --source real && git diff --exit-code -- docs/dashboard-real.html

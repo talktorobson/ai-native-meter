@@ -1,0 +1,571 @@
+[
+ {
+  "number": 101,
+  "title": "Fix tree indent",
+  "body": "",
+  "createdAt": "2025-01-06T09:00:00Z",
+  "mergedAt": "2025-01-07T09:00:00Z",
+  "additions": 40,
+  "deletions": 20,
+  "author": {
+   "login": "alice",
+   "__typename": "User"
+  },
+  "mergedBy": {
+   "login": "maintainer",
+   "__typename": "User"
+  },
+  "assignees": {
+   "nodes": []
+  },
+  "labels": {
+   "nodes": []
+  },
+  "reviews": {
+   "nodes": [
+    {
+     "createdAt": "2025-01-06T12:00:00Z",
+     "author": {
+      "login": "bob",
+      "__typename": "User"
+     }
+    }
+   ]
+  },
+  "commits": {
+   "nodes": [
+    {
+     "commit": {
+      "message": "Fix tree indent"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "number": 102,
+  "title": "Add setting",
+  "body": "",
+  "createdAt": "2025-01-08T09:00:00Z",
+  "mergedAt": "2025-01-09T21:00:00Z",
+  "additions": 100,
+  "deletions": 0,
+  "author": {
+   "login": "bob",
+   "__typename": "User"
+  },
+  "mergedBy": {
+   "login": "maintainer",
+   "__typename": "User"
+  },
+  "assignees": {
+   "nodes": []
+  },
+  "labels": {
+   "nodes": []
+  },
+  "reviews": {
+   "nodes": [
+    {
+     "createdAt": "2025-01-08T10:00:00Z",
+     "author": {
+      "login": "bob",
+      "__typename": "User"
+     }
+    },
+    {
+     "createdAt": "2025-01-08T15:00:00Z",
+     "author": {
+      "login": "alice",
+      "__typename": "User"
+     }
+    }
+   ]
+  },
+  "commits": {
+   "nodes": []
+  }
+ },
+ {
+  "number": 103,
+  "title": "Bump lodash from 4.17.20 to 4.17.21",
+  "body": "",
+  "createdAt": "2025-01-09T00:00:00Z",
+  "mergedAt": "2025-01-09T01:00:00Z",
+  "additions": 10,
+  "deletions": 5,
+  "author": {
+   "login": "dependabot[bot]",
+   "__typename": "Bot"
+  },
+  "mergedBy": {
+   "login": "maintainer",
+   "__typename": "User"
+  },
+  "assignees": {
+   "nodes": []
+  },
+  "labels": {
+   "nodes": []
+  },
+  "reviews": {
+   "nodes": []
+  },
+  "commits": {
+   "nodes": []
+  }
+ },
+ {
+  "number": 104,
+  "title": "Revert \"Fix tree indent\"",
+  "body": "Reverts microsoft/vscode#101",
+  "createdAt": "2025-01-14T09:00:00Z",
+  "mergedAt": "2025-01-14T10:00:00Z",
+  "additions": 20,
+  "deletions": 40,
+  "author": {
+   "login": "alice",
+   "__typename": "User"
+  },
+  "mergedBy": {
+   "login": "maintainer",
+   "__typename": "User"
+  },
+  "assignees": {
+   "nodes": []
+  },
+  "labels": {
+   "nodes": []
+  },
+  "reviews": {
+   "nodes": [
+    {
+     "createdAt": "2025-01-14T09:30:00Z",
+     "author": {
+      "login": "bob",
+      "__typename": "User"
+     }
+    }
+   ]
+  },
+  "commits": {
+   "nodes": []
+  }
+ },
+ {
+  "number": 105,
+  "title": "Fix migration after reverting a customization",
+  "body": "The activity stays after a migration is reverted, as outlined in issue #336731.",
+  "createdAt": "2025-01-15T09:00:00Z",
+  "mergedAt": "2025-01-16T09:00:00Z",
+  "additions": 10,
+  "deletions": 5,
+  "author": {
+   "login": "carol",
+   "__typename": "User"
+  },
+  "mergedBy": {
+   "login": "maintainer",
+   "__typename": "User"
+  },
+  "assignees": {
+   "nodes": []
+  },
+  "labels": {
+   "nodes": []
+  },
+  "reviews": {
+   "nodes": [
+    {
+     "createdAt": "2025-01-15T18:00:00Z",
+     "author": {
+      "login": "alice",
+      "__typename": "User"
+     }
+    }
+   ]
+  },
+  "commits": {
+   "nodes": []
+  }
+ },
+ {
+  "number": 201,
+  "title": "Prevent duplicate model picker icons",
+  "body": "",
+  "createdAt": "2026-07-06T09:00:00Z",
+  "mergedAt": "2026-07-06T19:00:00Z",
+  "additions": 30,
+  "deletions": 10,
+  "author": {
+   "login": "copilot-swe-agent",
+   "__typename": "Bot"
+  },
+  "mergedBy": {
+   "login": "alice",
+   "__typename": "User"
+  },
+  "assignees": {
+   "nodes": [
+    {
+     "login": "alice",
+     "__typename": "User"
+    },
+    {
+     "login": "Copilot",
+     "__typename": "Bot"
+    }
+   ]
+  },
+  "labels": {
+   "nodes": []
+  },
+  "reviews": {
+   "nodes": [
+    {
+     "createdAt": "2026-07-06T10:00:00Z",
+     "author": {
+      "login": "copilot-pull-request-reviewer",
+      "__typename": "Bot"
+     }
+    },
+    {
+     "createdAt": "2026-07-06T13:00:00Z",
+     "author": {
+      "login": "alice",
+      "__typename": "User"
+     }
+    }
+   ]
+  },
+  "commits": {
+   "nodes": [
+    {
+     "commit": {
+      "message": "Initial plan"
+     }
+    },
+    {
+     "commit": {
+      "message": "Fix icons\n\nCo-authored-by: alice <1+alice@users.noreply.github.com>"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "number": 202,
+  "title": "chat: show turn previews",
+  "body": "",
+  "createdAt": "2026-07-07T09:00:00Z",
+  "mergedAt": "2026-07-08T09:00:00Z",
+  "additions": 200,
+  "deletions": 50,
+  "author": {
+   "login": "bob",
+   "__typename": "User"
+  },
+  "mergedBy": {
+   "login": "maintainer",
+   "__typename": "User"
+  },
+  "assignees": {
+   "nodes": []
+  },
+  "labels": {
+   "nodes": []
+  },
+  "reviews": {
+   "nodes": [
+    {
+     "createdAt": "2026-07-07T11:00:00Z",
+     "author": {
+      "login": "carol",
+      "__typename": "User"
+     }
+    }
+   ]
+  },
+  "commits": {
+   "nodes": [
+    {
+     "commit": {
+      "message": "chat: show turn previews\n\nCo-authored-by: Copilot <copilot@github.com>"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "number": 203,
+  "title": "Tidy padding",
+  "body": "",
+  "createdAt": "2026-07-08T09:00:00Z",
+  "mergedAt": "2026-07-08T21:00:00Z",
+  "additions": 10,
+  "deletions": 5,
+  "author": {
+   "login": "carol",
+   "__typename": "User"
+  },
+  "mergedBy": {
+   "login": "maintainer",
+   "__typename": "User"
+  },
+  "assignees": {
+   "nodes": []
+  },
+  "labels": {
+   "nodes": []
+  },
+  "reviews": {
+   "nodes": [
+    {
+     "createdAt": "2026-07-08T12:00:00Z",
+     "author": {
+      "login": "bob",
+      "__typename": "User"
+     }
+    }
+   ]
+  },
+  "commits": {
+   "nodes": [
+    {
+     "commit": {
+      "message": "Tidy padding"
+     }
+    },
+    {
+     "commit": {
+      "message": "Apply suggestion from @Copilot\n\nCo-authored-by: Copilot <175728472+Copilot@users.noreply.github.com>"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "number": 204,
+  "title": "Add terminal tool",
+  "body": "Summary\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+  "createdAt": "2026-07-09T09:00:00Z",
+  "mergedAt": "2026-07-10T09:00:00Z",
+  "additions": 300,
+  "deletions": 20,
+  "author": {
+   "login": "dave",
+   "__typename": "User"
+  },
+  "mergedBy": {
+   "login": "maintainer",
+   "__typename": "User"
+  },
+  "assignees": {
+   "nodes": []
+  },
+  "labels": {
+   "nodes": []
+  },
+  "reviews": {
+   "nodes": [
+    {
+     "createdAt": "2026-07-09T20:00:00Z",
+     "author": {
+      "login": "alice",
+      "__typename": "User"
+     }
+    }
+   ]
+  },
+  "commits": {
+   "nodes": [
+    {
+     "commit": {
+      "message": "Add terminal tool\n\nCo-Authored-By: Claude <noreply@anthropic.com>"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "number": 205,
+  "title": "Copilot chat: tweak welcome view",
+  "body": "",
+  "createdAt": "2026-07-13T09:00:00Z",
+  "mergedAt": "2026-07-13T15:00:00Z",
+  "additions": 10,
+  "deletions": 5,
+  "author": {
+   "login": "erin",
+   "__typename": "User"
+  },
+  "mergedBy": {
+   "login": "maintainer",
+   "__typename": "User"
+  },
+  "assignees": {
+   "nodes": []
+  },
+  "labels": {
+   "nodes": [
+    {
+     "name": "copilot"
+    },
+    {
+     "name": "ai-generated"
+    }
+   ]
+  },
+  "reviews": {
+   "nodes": [
+    {
+     "createdAt": "2026-07-13T11:00:00Z",
+     "author": {
+      "login": "bob",
+      "__typename": "User"
+     }
+    }
+   ]
+  },
+  "commits": {
+   "nodes": []
+  }
+ },
+ {
+  "number": 206,
+  "title": "sessions: revert previews",
+  "body": "- revert #202 for this release",
+  "createdAt": "2026-07-14T09:00:00Z",
+  "mergedAt": "2026-07-14T12:00:00Z",
+  "additions": 10,
+  "deletions": 5,
+  "author": {
+   "login": "bob",
+   "__typename": "User"
+  },
+  "mergedBy": {
+   "login": "maintainer",
+   "__typename": "User"
+  },
+  "assignees": {
+   "nodes": []
+  },
+  "labels": {
+   "nodes": []
+  },
+  "reviews": {
+   "nodes": [
+    {
+     "createdAt": "2026-07-14T10:00:00Z",
+     "author": {
+      "login": "alice",
+      "__typename": "User"
+     }
+    }
+   ]
+  },
+  "commits": {
+   "nodes": []
+  }
+ },
+ {
+  "number": 207,
+  "title": "Revert \"Upstream change\"",
+  "body": "Reverts other/repo#5",
+  "createdAt": "2026-07-15T09:00:00Z",
+  "mergedAt": "2026-07-15T12:00:00Z",
+  "additions": 10,
+  "deletions": 5,
+  "author": {
+   "login": "carol",
+   "__typename": "User"
+  },
+  "mergedBy": {
+   "login": "maintainer",
+   "__typename": "User"
+  },
+  "assignees": {
+   "nodes": []
+  },
+  "labels": {
+   "nodes": []
+  },
+  "reviews": {
+   "nodes": [
+    {
+     "createdAt": "2026-07-15T10:00:00Z",
+     "author": {
+      "login": "alice",
+      "__typename": "User"
+     }
+    }
+   ]
+  },
+  "commits": {
+   "nodes": []
+  }
+ },
+ {
+  "number": 208,
+  "title": "Polish the welcome view",
+  "body": "",
+  "createdAt": "2026-07-16T09:00:00Z",
+  "mergedAt": "2026-07-17T09:00:00Z",
+  "additions": 10,
+  "deletions": 5,
+  "author": {
+   "login": "copilot-swe-agent",
+   "__typename": "Bot"
+  },
+  "mergedBy": {
+   "login": "erin",
+   "__typename": "User"
+  },
+  "assignees": {
+   "nodes": [
+    {
+     "login": "Copilot",
+     "__typename": "Bot"
+    }
+   ]
+  },
+  "labels": {
+   "nodes": []
+  },
+  "reviews": {
+   "nodes": []
+  },
+  "commits": {
+   "nodes": []
+  }
+ },
+ {
+  "number": 209,
+  "title": "Revert \"Add terminal tool\"",
+  "body": "Reverts https://github.com/microsoft/vscode/pull/204",
+  "createdAt": "2026-07-21T09:00:00Z",
+  "mergedAt": "2026-07-21T10:00:00Z",
+  "additions": 10,
+  "deletions": 5,
+  "author": {
+   "login": "dave",
+   "__typename": "User"
+  },
+  "mergedBy": {
+   "login": "maintainer",
+   "__typename": "User"
+  },
+  "assignees": {
+   "nodes": []
+  },
+  "labels": {
+   "nodes": []
+  },
+  "reviews": {
+   "nodes": []
+  },
+  "commits": {
+   "nodes": []
+  }
+ }
+]

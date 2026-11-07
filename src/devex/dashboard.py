@@ -57,6 +57,7 @@ class Kpi:
     fmt: str
     direction: int  # +1 higher is better, -1 lower is better, 0 neutral
     hint: str = ""
+    points: bool = False  # show the change in percentage points (for rates)
 
 
 KPIS: tuple[Kpi, ...] = (
@@ -292,16 +293,17 @@ def _delta_color(change: float, direction: int) -> str:
 
 def kpi_tile(kpi: Kpi, before: Scorecard, after: Scorecard) -> str:
     old, new = getattr(before, kpi.field), getattr(after, kpi.field)
-    change = metrics.relative_change(old, new)
+    change = new - old if kpi.points else metrics.relative_change(old, new)
     arrow = "▲" if change > 0 else "▼" if change < 0 else "●"
     hero = " hero" if kpi.hint == "North star" else ""
     color = _delta_color(change, kpi.direction)
+    shown = f"{change * 100:+.1f} pp" if kpi.points else f"{change:+.0%}"
     return (
         f'<div class="tile{hero}"><div class="hint">{escape(kpi.hint)}</div>'
         f'<div class="label">{escape(kpi.label)}</div>'
         f'<div class="value">{escape(kpi.fmt.format(new))}</div>'
         f'<div class="meta"><span class="delta" style="color:{color}">'
-        f"{arrow} {change:+.0%}</span> vs baseline {escape(kpi.fmt.format(old))}</div></div>"
+        f"{arrow} {shown}</span> vs baseline {escape(kpi.fmt.format(old))}</div></div>"
     )
 
 
