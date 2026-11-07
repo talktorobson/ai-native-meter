@@ -1,11 +1,13 @@
-"""The metrics engine run on a real snapshot: baseline window vs current window, AI cohorts,
-the evidence behind the AI attribution, and the Goodhart guards. Pure functions only."""
+"""The metrics engine run on a real snapshot: current window vs baseline window (year over year
+by default), an optional earlier reference window, AI cohorts, the evidence behind the AI
+attribution, and the Goodhart guards. Pure functions only."""
 
 from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import date
 
 from devex import github_source, metrics
 from devex.github_source import COHORTS, Snapshot
@@ -13,11 +15,13 @@ from devex.metrics import PullRequest, Scorecard, Window
 
 __all__ = [
     "LIMITS",
+    "Period",
     "RealView",
     "build",
     "change",
     "cohorts",
     "evidence_counts",
+    "pick_windows",
     "to_markdown",
     "window_label",
 ]
@@ -25,10 +29,11 @@ __all__ = [
 LIMITS = (
     "Reverts are a change-failure proxy: incidents, hotfixes and rollbacks without a revert PR "
     "are invisible, so the true failure rate is higher on both sides.",
-    "AI attribution is incomplete: the baseline has no observable signal, not no AI use, and "
-    "assistance without a trailer, marker or agent author is counted as human.",
+    "AI attribution is incomplete: a window with no observable signal is not a window with no AI "
+    "use, and assistance without a trailer, marker or agent author is counted as human.",
     "Correlation is not causation: team size, roadmap, release cadence and tooling all changed "
-    "between the windows.",
+    "between the windows. Comparing the same quarter a year apart removes seasonality, "
+    "nothing else.",
     "Open source is not an enterprise: drive-by contributors dilute per-engineer numbers and "
     "review norms differ.",
     "Token cost is not observable in public data, so cost per merged PR is not reported.",
@@ -48,20 +53,68 @@ ROWS = (
 
 
 @dataclass(frozen=True, slots=True)
+class Period:
+    """One fetched window, scored. ``role`` is "reference", "baseline" or "current"."""
+
+    role: str
+    window: Window
+    label: str
+    card: Scorecard
+    cohorts: dict[str, Scorecard]
+    evidence: tuple[tuple[str, int], ...]
+
+
+@dataclass(frozen=True, slots=True)
 class RealView:
     snapshot: Snapshot
     prs: tuple[PullRequest, ...]
-    before_window: Window
-    after_window: Window
-    before_label: str
-    after_label: str
+    periods: tuple[Period, ...]  # chronological
     fetched_on: str
-    before: Scorecard
-    after: Scorecard
-    cohorts_before: dict[str, Scorecard]
-    cohorts_after: dict[str, Scorecard]
-    evidence_after: tuple[tuple[str, int], ...]
-    signals: tuple[str, ...]
+    signals: tuple[str, ...]  # current vs baseline
+    signals_reference: tuple[str, ...]  # current vs reference, empty without a reference
+
+    def _role(self, role: str) -> Period | None:
+        return next((p for p in self.periods if p.role == role), None)
+
+    @property
+    def baseline(self) -> Period:
+        return self._role("baseline")
+
+    @property
+    def current(self) -> Period:
+        return self._role("current")
+
+    @property
+    def reference(self) -> Period | None:
+        return self._role("reference")
+
+    @property
+    def before(self) -> Scorecard:
+        return self.baseline.card
+
+    @property
+    def after(self) -> Scorecard:
+        return self.current.card
+
+    @property
+    def before_label(self) -> str:
+        return self.baseline.label
+
+    @property
+    def after_label(self) -> str:
+        return self.current.label
+
+    @property
+    def cohorts_before(self) -> dict[str, Scorecard]:
+        return self.baseline.cohorts
+
+    @property
+    def cohorts_after(self) -> dict[str, Scorecard]:
+        return self.current.cohorts
+
+    @property
+    def evidence_after(self) -> tuple[tuple[str, int], ...]:
+        return self.current.evidence
 
 
 def window_label(window: Window) -> str:
@@ -94,29 +147,75 @@ def evidence_counts(
     return tuple(sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])))
 
 
-def build(snapshot: Snapshot) -> RealView:
-    """First fetched window is the baseline, last one is the current window."""
-    if len(snapshot.windows) < 2:
+def _year_before(day: date) -> date | None:
+    try:
+        return day.replace(year=day.year - 1)
+    except ValueError:  # 29 February
+        return None
+
+
+def pick_windows(
+    windows: Sequence[Window], baseline: str | None = None, current: str | None = None
+) -> tuple[Window | None, Window, Window]:
+    """Choose ``(reference, baseline, current)`` among fetched windows, by start date.
+
+    ``current`` defaults to the latest window. ``baseline`` defaults to the window that starts
+    one year before ``current`` (same season), else the earliest. The reference is the earliest
+    remaining window that starts before the baseline, if any.
+    """
+    if len(windows) < 2:
         raise ValueError("snapshot needs two fetched windows (baseline and current)")
-    before_w, after_w = snapshot.windows[0][0], snapshot.windows[-1][0]
+    by_start = {w.start.date().isoformat(): w for w in windows}
+
+    def find(start: str) -> Window:
+        if start not in by_start:
+            raise ValueError(f"no fetched window starts on {start}; have {', '.join(by_start)}")
+        return by_start[start]
+
+    ordered = sorted(windows, key=lambda w: w.start)
+    cur = find(current) if current else ordered[-1]
+    year_before = _year_before(cur.start.date())
+    same_season = by_start.get(year_before.isoformat()) if year_before else None
+    base = find(baseline) if baseline else same_season or ordered[0]
+    if base == cur:
+        raise ValueError("baseline and current must be different windows")
+    earlier = [w for w in ordered if w.start < base.start and w != cur]
+    return (earlier[0] if earlier else None), base, cur
+
+
+def build(snapshot: Snapshot, baseline: str | None = None, current: str | None = None) -> RealView:
+    """Score the reference, baseline and current windows chosen by ``pick_windows``."""
+    reference_w, before_w, after_w = pick_windows(
+        tuple(w for w, _ in snapshot.windows), baseline, current
+    )
     prs = github_source.to_pull_requests(snapshot)
     evidence = snapshot.evidence()
-    before = metrics.scorecard(prs, github_source.engineers_in(prs, before_w), before_w)
-    after = metrics.scorecard(prs, github_source.engineers_in(prs, after_w), after_w)
+
+    def period(role: str, window: Window) -> Period:
+        return Period(
+            role=role,
+            window=window,
+            label=window_label(window),
+            card=metrics.scorecard(prs, github_source.engineers_in(prs, window), window),
+            cohorts=cohorts(prs, evidence, window),
+            evidence=evidence_counts(prs, evidence, window),
+        )
+
+    roles = (("reference", reference_w), ("baseline", before_w), ("current", after_w))
+    periods = tuple(
+        sorted((period(r, w) for r, w in roles if w is not None), key=lambda p: p.window.start)
+    )
+    by_role = {p.role: p.card for p in periods}
+    reference = by_role.get("reference")
     return RealView(
         snapshot=snapshot,
         prs=prs,
-        before_window=before_w,
-        after_window=after_w,
-        before_label=window_label(before_w),
-        after_label=window_label(after_w),
+        periods=periods,
         fetched_on=max(f for _, f in snapshot.windows),
-        before=before,
-        after=after,
-        cohorts_before=cohorts(prs, evidence, before_w),
-        cohorts_after=cohorts(prs, evidence, after_w),
-        evidence_after=evidence_counts(prs, evidence, after_w),
-        signals=metrics.gaming_signals(before, after),
+        signals=metrics.gaming_signals(by_role["baseline"], by_role["current"]),
+        signals_reference=(
+            metrics.gaming_signals(reference, by_role["current"]) if reference else ()
+        ),
     )
 
 
@@ -137,43 +236,82 @@ def change(before: float, after: float, fmt: str) -> str:
     return f"{metrics.relative_change(before, after):+.0%}"
 
 
-def to_markdown(view: RealView) -> str:
-    before, after = view.before, view.after
-    table = "\n".join(
-        f"| {label} | {fmt.format(getattr(before, f))} | {fmt.format(getattr(after, f))} "
-        f"| {change(getattr(before, f), getattr(after, f), fmt)} |"
-        for label, f, fmt in ROWS
+def _heading(view: RealView) -> str:
+    ref = view.reference
+    tail = f" (pre-AI reference {ref.label})" if ref else ""
+    return f"## Real data: {view.snapshot.repo}, {view.before_label} vs {view.after_label}{tail}"
+
+
+def _evidence_table(view: RealView) -> str:
+    counts = [dict(p.evidence) for p in view.periods]
+    kinds = sorted(
+        {k for c in counts for k in c}, key=lambda k: (-dict(view.evidence_after).get(k, 0), k)
     )
-    evidence = "\n".join(f"| `{kind}` | {count:,} |" for kind, count in view.evidence_after)
-    signals = view.signals or ("None triggered.",)
+    header = "| Evidence | " + " | ".join(p.label for p in view.periods) + " |"
+    rule = "|---|" + "---|" * len(view.periods)
+    rows = (f"| `{k}` | " + " | ".join(f"{c.get(k, 0):,}" for c in counts) + " |" for k in kinds)
+    return "\n".join((header, rule, *rows)) if kinds else "No AI evidence on merged PRs."
+
+
+def _guards(view: RealView) -> tuple[str, ...]:
+    pairs = ((view.baseline, view.signals),) + (
+        ((view.reference, view.signals_reference),) if view.reference else ()
+    )
+    return tuple(
+        f"- {view.after_label} vs {p.label}: {s}"
+        for p, signals in pairs
+        for s in (signals or ("none triggered.",))
+    )
+
+
+def to_markdown(view: RealView) -> str:
+    ref, base, cur = view.reference, view.baseline, view.current
+    shown = (ref, base, cur) if ref else (base, cur)
+    compared = (base, ref) if ref else (base,)
+
+    def row(label: str, f: str, fmt: str) -> str:
+        values = " | ".join(fmt.format(getattr(p.card, f)) for p in shown)
+        now = getattr(cur.card, f)
+        changes = " | ".join(change(getattr(p.card, f), now, fmt) for p in compared)
+        return f"| {label} | {values} | {changes} |"
+
+    def title(p: Period) -> str:
+        return f"{p.label} ({p.role})"
+
+    header = (
+        "| Metric | "
+        + " | ".join(title(p) for p in shown)
+        + " | "
+        + " | ".join(f"{cur.label} vs {p.label}" for p in compared)
+        + " |"
+    )
+    unobservable = " | ".join("not observable" for _ in shown)
+    na = " | ".join("n/a" for _ in compared)
     return "\n".join(
         (
-            f"## Real data: {view.snapshot.repo}, {view.before_label} vs {view.after_label}",
+            _heading(view),
             "",
             f"Source: {view.snapshot.url} · merged PRs into `{view.snapshot.default_branch}` · "
             f"fetched {view.fetched_on} · {len(view.prs):,} PRs in the snapshot.",
             "",
-            f"| Metric | {view.before_label} | {view.after_label} | Change |",
-            "|---|---|---|---|",
-            table,
-            "| Token cost per merged PR | not observable | not observable | n/a |",
+            header,
+            "|---|" + "---|" * (len(shown) + len(compared)),
+            *(row(label, f, fmt) for label, f, fmt in ROWS),
+            f"| Token cost per merged PR | {unobservable} | {na} |",
             "",
             "**AI cohorts** (cohort engineers are the distinct authors in that cohort)",
             "",
             "| Window | Cohort | Merged PRs | Share | Engineers | Revert rate "
             "| Median cycle (h) | Median first review (h) | Median size |",
             "|---|---|---|---|---|---|---|---|---|",
-            _cohort_rows(view.before_label, view.cohorts_before),
-            _cohort_rows(view.after_label, view.cohorts_after),
+            *(_cohort_rows(p.label, p.cohorts) for p in view.periods),
             "",
-            f"**AI evidence on merged PRs, {view.after_label}** (a PR can carry several)",
+            "**AI evidence on merged PRs** (a PR can carry several)",
             "",
-            "| Evidence | PRs |",
-            "|---|---|",
-            evidence or "| none | 0 |",
+            _evidence_table(view),
             "",
             "**Goodhart guards**",
-            *(f"- {s}" for s in signals),
+            *_guards(view),
             "",
             "**Limits**",
             *(f"- {s}" for s in LIMITS),

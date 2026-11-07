@@ -75,7 +75,11 @@ def _snapshot_path(args: argparse.Namespace) -> Path:
 
 
 def _real_view(args: argparse.Namespace) -> real.RealView:
-    return real.build(github_source.load_snapshot(_snapshot_path(args)))
+    snapshot = github_source.load_snapshot(_snapshot_path(args))
+    try:
+        return real.build(snapshot, baseline=args.baseline, current=args.current)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
 
 
 def cmd_fetch(args: argparse.Namespace) -> str:
@@ -328,6 +332,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--since", help="fetch: window start date, inclusive (YYYY-MM-DD)")
     parser.add_argument("--until", help="fetch: window end date, exclusive (YYYY-MM-DD)")
     parser.add_argument("--fetched-on", help="fetch: date to record (default today)")
+    parser.add_argument(
+        "--baseline",
+        help="real: start date of the baseline window (default: same quarter a year before "
+        "the current window, else the earliest)",
+    )
+    parser.add_argument(
+        "--current", help="real: start date of the current window (default: the latest)"
+    )
     commands = {
         "report": cmd_report,
         "eval-review": cmd_eval_review,

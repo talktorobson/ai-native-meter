@@ -11,7 +11,9 @@ from devex.dashboard import BASELINE_COLOR, CSS, PLATFORM_COLOR, Bar, Kpi, Serie
 from devex.github_source import COHORTS
 from devex.metrics import Scorecard
 
-__all__ = ["COHORT_COLORS", "KPIS", "render"]
+__all__ = ["COHORT_COLORS", "KPIS", "ROLE_COLORS", "render"]
+
+ROLE_COLORS = {"reference": "#cbd5e1", "baseline": BASELINE_COLOR, "current": PLATFORM_COLOR}
 
 COHORT_COLORS = dict(
     zip(COHORTS, ("#7c3aed", PLATFORM_COLOR, "#0d9488", BASELINE_COLOR), strict=True)
@@ -50,18 +52,13 @@ ul.limits{margin:0;padding-left:20px;color:#334155}ul.limits li{margin-bottom:6p
 
 
 def _trend(view: real.RealView, title: str, field: str, y_format: str) -> str:
-    def weekly(prs, window, card: Scorecard) -> tuple[float, ...]:
-        cards = dashboard.weekly_scorecards(prs, card.engineers, window)
+    def weekly(period: real.Period) -> tuple[float, ...]:
+        cards = dashboard.weekly_scorecards(view.prs, period.card.engineers, period.window)
         return tuple(getattr(c, field) for c in cards)
 
-    series = (
-        Series(
-            view.before_label,
-            weekly(view.prs, view.before_window, view.before),
-            BASELINE_COLOR,
-            True,
-        ),
-        Series(view.after_label, weekly(view.prs, view.after_window, view.after), PLATFORM_COLOR),
+    series = tuple(
+        Series(f"{p.label} ({p.role})", weekly(p), ROLE_COLORS[p.role], dashed=p.role != "current")
+        for p in view.periods
     )
     weeks = max(len(s.values) for s in series)
     chart = dashboard.line_chart(
@@ -145,8 +142,8 @@ def _cohort_table(view: real.RealView) -> str:
         '<div class="card gap"><table class="compact"><thead><tr><th>Window</th><th>Cohort</th>'
         "<th>Merged PRs</th><th>Share</th><th>Engineers</th><th>Revert rate</th>"
         "<th>Median cycle (h)</th><th>Median first review (h)</th><th>Median size</th></tr>"
-        f"</thead><tbody>{rows(view.before_label, view.cohorts_before)}"
-        f"{rows(view.after_label, view.cohorts_after)}</tbody></table></div>"
+        f"</thead><tbody>{''.join(rows(p.label, p.cohorts) for p in view.periods)}"
+        "</tbody></table></div>"
     )
 
 
@@ -175,6 +172,34 @@ def _limits() -> str:
     return f'<div class="card"><ul class="limits">{items}</ul></div>'
 
 
+def _headline(view: real.RealView) -> str:
+    ref = view.reference
+    reference = (
+        f" {ref.label} is shown as the reference before any visible AI signal "
+        f"({ref.card.ai_assisted_share:.0%} AI-assisted)."
+        if ref
+        else ""
+    )
+    return (
+        f"{view.after_label} vs {view.before_label} "
+        f"({view.before.ai_assisted_share:.0%} AI-assisted).{reference} Engineers are the "
+        "distinct humans credited with a merged PR in each window; bots are excluded. Token "
+        "cost per merged PR is not observable in public data."
+    )
+
+
+def _guards(view: real.RealView) -> str:
+    ref = view.reference
+    blocks = ((view.before_label, view.signals),) + (
+        ((ref.label, view.signals_reference),) if ref else ()
+    )
+    return "".join(
+        f'<h3 class="small">{escape(view.after_label)} vs {escape(label)}</h3>'
+        f"{dashboard._signals(signals)}"
+        for label, signals in blocks
+    )
+
+
 def render(view: real.RealView) -> str:
     snap = view.snapshot
     repo, url = escape(snap.repo), escape(snap.url)
@@ -189,11 +214,13 @@ def render(view: real.RealView) -> str:
         )
         + "</div>"
     )
+    ref = view.reference
+    reference = f" · pre-AI reference <b>{escape(ref.label)}</b>" if ref else ""
     facts = (
         f'<div class="facts"><span>Source <a href="{url}"><b>{repo}</b></a></span>'
         f"<span>Merged PRs into <b>{escape(snap.default_branch)}</b></span>"
-        f"<span>Baseline <b>{escape(view.before_label)}</b> · current "
-        f"<b>{escape(view.after_label)}</b></span>"
+        f"<span>Current <b>{escape(view.after_label)}</b> vs baseline "
+        f"<b>{escape(view.before_label)}</b>{reference}</span>"
         f"<span>Fetched <b>{escape(view.fetched_on)}</b> via the GitHub API</span>"
         f"<span><b>{len(view.prs):,}</b> PRs in the snapshot</span></div>"
     )
@@ -201,20 +228,19 @@ def render(view: real.RealView) -> str:
         (
             dashboard._section(
                 "North star and guardrails",
-                f"{view.before_label} (before visible AI-agent adoption) vs {view.after_label}. "
-                "Engineers are the distinct humans credited with a merged PR in each window; "
-                "bots are excluded. Token cost per merged PR is not observable in public data.",
+                _headline(view),
                 f'<div class="tiles">{tiles}</div>',
             ),
             dashboard._section(
                 "Weekly trend",
-                "Same week index in each window; per-engineer rates use the window's engineers.",
+                "Same week index in each window; per-engineer rates use the window's engineers. "
+                "Dashed lines are the earlier windows.",
                 trends,
             ),
             dashboard._section(
                 "Goodhart guards",
                 "The same automatic checks as the synthetic run, applied to the real numbers.",
-                dashboard._signals(view.signals),
+                _guards(view),
             ),
             dashboard._section(
                 f"AI cohorts, {view.after_label}",

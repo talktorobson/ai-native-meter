@@ -2,7 +2,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 
 import pytest
-from conftest import REPO
+from conftest import AFTER, BEFORE, MID, REPO
 
 from devex import cli, dashboard_real, github_source, real
 from devex.cli import main
@@ -158,4 +158,84 @@ def test_cli_fetch_validates_its_arguments(extra):
 def test_committed_snapshot_reports_offline(capsys):
     assert main(["report", "--source", "real"]) == 0
     out = capsys.readouterr().out
-    assert "microsoft/vscode" in out and "Q1 2025 vs Q3 2026" in out
+    assert "microsoft/vscode, Q3 2025 vs Q3 2026 (pre-AI reference Q1 2025)" in out
+
+
+def test_pick_windows_defaults_to_the_same_season_a_year_earlier():
+    assert real.pick_windows((BEFORE, MID, AFTER)) == (BEFORE, MID, AFTER)
+    assert real.pick_windows((AFTER, BEFORE, MID)) == (BEFORE, MID, AFTER)
+
+
+def test_pick_windows_falls_back_to_the_earliest_window_without_a_reference():
+    assert real.pick_windows((BEFORE, AFTER)) == (None, BEFORE, AFTER)
+
+
+@pytest.mark.parametrize(
+    ("baseline", "current", "expected"),
+    [
+        ("2025-01-06", None, (None, BEFORE, AFTER)),
+        (None, "2025-07-06", (None, BEFORE, MID)),
+        ("2025-07-06", "2026-07-06", (BEFORE, MID, AFTER)),
+    ],
+)
+def test_pick_windows_honours_explicit_choices(baseline, current, expected):
+    assert real.pick_windows((BEFORE, MID, AFTER), baseline, current) == expected
+
+
+@pytest.mark.parametrize(
+    ("baseline", "current", "error"),
+    [
+        ("2024-01-01", None, "no fetched window starts on 2024-01-01"),
+        ("2026-07-06", None, "must be different"),
+    ],
+)
+def test_pick_windows_rejects_unknown_or_identical_windows(baseline, current, error):
+    with pytest.raises(ValueError, match=error):
+        real.pick_windows((BEFORE, MID, AFTER), baseline, current)
+
+
+def test_build_scores_reference_baseline_and_current(three_window_snapshot):
+    view = real.build(three_window_snapshot)
+    assert [p.role for p in view.periods] == ["reference", "baseline", "current"]
+    assert (view.reference.window, view.baseline.window, view.current.window) == (
+        BEFORE,
+        MID,
+        AFTER,
+    )
+    assert view.before.merged_prs == 2 and view.before.ai_assisted_share == pytest.approx(0.5)
+    assert view.reference.card.ai_assisted_share == 0
+    assert dict(view.baseline.evidence) == {"agent:copilot-swe-agent": 1}
+    assert isinstance(view.signals_reference, tuple)
+
+
+def test_two_windows_have_no_reference_guards(view):
+    assert view.reference is None and view.signals_reference == ()
+
+
+def test_markdown_compares_current_with_baseline_and_reference(three_window_snapshot):
+    text = real.to_markdown(real.build(three_window_snapshot))
+    b, m, a = "2025-01-06 to 2025-01-20", "2025-07-06 to 2025-07-20", "2026-07-06 to 2026-07-20"
+    assert f"## Real data: microsoft/vscode, {m} vs {a} (pre-AI reference {b})" in text
+    assert f"| Metric | {b} (reference) | {m} (baseline) | {a} (current) " in text
+    assert f"| {a} vs {m} | {a} vs {b} |" in text
+    assert "| Merged PRs | 4 | 2 | 8 | +300% | +100% |" in text
+    assert f"| Evidence | {b} | {m} | {a} |" in text
+    assert "| `agent:copilot-swe-agent` | 0 | 1 | 2 |" in text
+    assert f"- {a} vs {m}:" in text and f"- {a} vs {b}:" in text
+    assert text.count(f"| {m} | ") >= 2  # cohort rows for the baseline window
+
+
+def test_real_dashboard_draws_every_window(three_window_snapshot):
+    html = dashboard_real.render(real.build(three_window_snapshot))
+    assert "pre-AI reference <b>2025-01-06 to 2025-01-20</b>" in html
+    for role in ("reference", "baseline", "current"):
+        assert f"({role})</span>" in html
+    assert html.count('stroke-dasharray="6 4"') == 2 * 4  # two earlier windows, four trends
+
+
+def test_cli_report_accepts_an_explicit_baseline(three_window_file, capsys):
+    args = ["report", "--source", "real", "--snapshot", str(three_window_file)]
+    assert main([*args, "--baseline", "2025-01-06"]) == 0
+    assert "2025-01-06 to 2025-01-20 vs 2026-07-06 to 2026-07-20\n" in capsys.readouterr().out
+    with pytest.raises(SystemExit, match="no fetched window starts on 1999-01-01"):
+        main([*args, "--baseline", "1999-01-01"])

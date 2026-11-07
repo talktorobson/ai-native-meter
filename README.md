@@ -26,19 +26,21 @@ flowchart LR
 
 ## On real data: microsoft/vscode
 
-The same metrics engine, run on **7,430 real merged pull requests** from
-[**microsoft/vscode**](https://github.com/microsoft/vscode): Q1 2025, before visible AI-agent
-adoption, against Q3 2026.
+The same metrics engine, run on **9,797 real merged pull requests** from
+[**microsoft/vscode**](https://github.com/microsoft/vscode). The headline compares Q3 2026 with
+the same quarter a year earlier, Q3 2025, which controls for seasonality. Q1 2025, with no
+visible AI signal at all, stays on every chart as the pre-AI reference.
 
 [![Dashboard on real microsoft/vscode pull requests](docs/dashboard-real.png)](docs/dashboard-real.html)
 
-- **AI-assisted share 0% → 66%** of merged PRs (Copilot co-author trailers, the Copilot
-  coding agent, Claude and Cursor trailers or markers), climbing from about 50% to 76% across Q3 2026.
-- **Merged PRs +90%, but PRs per engineer per week only +9%**: most of the growth is more
-  people, not more output per person. That is exactly why the north star is per engineer.
-- **Revert rate flat at 0.7%**, and AI co-authored PRs revert no more than the rest.
-- **Review is the new bottleneck**: median PR size 21 → 121 lines, time to first human
-  review 0.3 h → 1.2 h. Agent-authored PRs wait 4.3 h for a human.
+- **AI-assisted share 6% → 66%** of merged PRs year over year (0% in Q1 2025): Copilot
+  co-author trailers, the Copilot coding agent, Claude and Cursor trailers or markers.
+- **PRs per engineer per week +47% year over year, but only +9% against the pre-AI
+  reference.** Q3 2025 was the weakest quarter per engineer (1.33 vs 1.80 in Q1 2025), so
+  quote both. Merged PRs doubled (+102%), engineers +37%.
+- **Revert rate flat** (0.6% → 0.7%), and AI co-authored PRs revert no more than the rest.
+- **Review is the new bottleneck**: median PR size 18 → 121 lines, time to first human
+  review 0.4 h → 1.2 h, and PRs with no AI signal grew and slowed too. No Goodhart guard fired.
 
 Reverts are only a change-failure proxy, attribution is incomplete, open source is not an
 enterprise, and none of this is causal. Method, heuristics and limits are in
@@ -61,7 +63,7 @@ what public data cannot show: token cost, evals and routing. Open
 | 03 | [Architecture](docs/03-architecture.md) | Context layer, agentic coding, agentic review, AI SRE, routing, platform |
 | 04 | [Operating model](docs/04-operating-model.md) | Turning borrowed, part-time contributors into a dedicated team, and the first 90 days |
 | 05 | [Build vs partner](docs/05-build-vs-partner.md) | Two-stage make / co-build / buy engine: motion fit, evidence-discounted scoring, priced lock-in, win probability and flip points |
-| 06 | [Real data](docs/06-real-data.md) | The same metrics on 7,430 microsoft/vscode PRs: method, AI-attribution heuristics, results and limits |
+| 06 | [Real data](docs/06-real-data.md) | The same metrics on 9,797 microsoft/vscode PRs across three quarters: method, AI-attribution heuristics, results and limits |
 | ADR | [Decisions](docs/adr) | Context before agents · precision before recall · route by evals · decisions as data |
 
 ## Run the reference implementation
@@ -71,7 +73,7 @@ Pure Python 3.11+, no runtime dependencies.
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-pytest -q          # 187 tests, offline
+pytest -q          # 199 tests, offline
 devex demo         # every module, printed as Markdown
 devex dashboard    # the same numbers as a static HTML page: docs/dashboard.html
 open docs/dashboard.html   # macOS; use xdg-open on Linux
@@ -85,7 +87,7 @@ devex dashboard --source real   # docs/dashboard-real.html
 | `devex dashboard [--out PATH]` | [`dashboard.py`](src/devex/dashboard.py) | Self-contained HTML (inline CSS and SVG, no external assets) with KPI tiles, weekly trends, guards, evals, routing, the motion-fit map, contribution breakdown and win probabilities |
 | `devex report` | [`metrics.py`](src/devex/metrics.py) | Baseline vs rollout scorecard with Goodhart guards |
 | `devex fetch --repo OWNER/NAME --since DATE --until DATE` | [`github_source.py`](src/devex/github_source.py) | Real merged PRs from a public GitHub repo via `gh api graphql`, mapped to the same model and saved as an offline snapshot in `data/real/` |
-| `devex report --source real`, `devex dashboard --source real` | [`real.py`](src/devex/real.py), [`dashboard_real.py`](src/devex/dashboard_real.py) | The scorecard, AI cohorts, attribution evidence and Goodhart guards on the snapshot; `docs/dashboard-real.html` |
+| `devex report --source real`, `devex dashboard --source real` | [`real.py`](src/devex/real.py), [`dashboard_real.py`](src/devex/dashboard_real.py) | The scorecard, AI cohorts, attribution evidence and Goodhart guards on the snapshot; `docs/dashboard-real.html`. Current defaults to the latest window, baseline to the same quarter a year earlier; override with `--baseline DATE` / `--current DATE` |
 | `devex eval-review` | [`review_eval.py`](src/devex/review_eval.py) | Any review agent scored on a seeded-defect fintech benchmark |
 | `devex context` | [`context.py`](src/devex/context.py) | Curation-aware graph retrieval under a token budget, plus curation lint |
 | `devex route` | [`routing.py`](src/devex/routing.py) | Eval-driven model routing: savings and quality trade-off |
@@ -126,7 +128,8 @@ Highlights from [`docs/demo-output.md`](docs/demo-output.md) (synthetic data):
 - The real-data view uses public proxies: reverts stand in for change failures, AI
   assistance counts only when it leaves a trace (agent author, trailer, marker, label),
   token cost is not observable, and an open-source project is not an enterprise. It shows
-  correlation across two quarters, not causation. See [06 · Real data](docs/06-real-data.md).
+  correlation across three quarters, not causation; comparing the same quarter a year apart
+  removes seasonality, nothing else. See [06 · Real data](docs/06-real-data.md).
 - The retrieval scorer is lexical plus graph traversal. A production system adds
   embeddings and a learned re-ranker; the contract (provenance, curation weighting,
   budgets) is what this code is meant to show.
