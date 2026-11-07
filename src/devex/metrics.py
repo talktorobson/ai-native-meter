@@ -157,6 +157,35 @@ def relative_change(before: float, after: float) -> float:
     return _safe_div(after - before, before)
 
 
+def cost_quality_signal(
+    cost_before: float,
+    cost_after: float,
+    cfr_before: float,
+    cfr_after: float,
+    latency_before: float = 0.0,
+    latency_after: float = 0.0,
+    *,
+    max_cfr_increase_pp: float = 0.01,
+    max_latency_increase: float = 0.25,
+) -> str | None:
+    """Token efficiency never trumps quality: a cheaper change is only a gain if it is not a worse
+    one. Shared by the PR scorecard guards and the token-spend team guards."""
+    if not cost_after < cost_before:
+        return None
+    worse = (
+        ("change failure rate", cfr_after - cfr_before > max_cfr_increase_pp),
+        (
+            "review latency",
+            latency_before > 0
+            and relative_change(latency_before, latency_after) > max_latency_increase,
+        ),
+    )
+    hit = tuple(name for name, bad in worse if bad)
+    if not hit:
+        return None
+    return f"Cost per change fell while {' and '.join(hit)} worsened: savings bought with quality."
+
+
 def gaming_signals(
     baseline: Scorecard,
     current: Scorecard,
@@ -167,6 +196,15 @@ def gaming_signals(
 ) -> tuple[str, ...]:
     """Goodhart guards: throughput gains that are probably not real gains."""
     throughput_up = current.prs_per_engineer_week > baseline.prs_per_engineer_week
+    cheaper_but_worse = cost_quality_signal(
+        baseline.cost_per_merged_pr_usd,
+        current.cost_per_merged_pr_usd,
+        baseline.change_failure_rate,
+        current.change_failure_rate,
+        baseline.median_review_latency_hours,
+        current.median_review_latency_hours,
+        max_cfr_increase_pp=max_cfr_increase_pp,
+    )
     checks = (
         (
             throughput_up
@@ -184,5 +222,6 @@ def gaming_signals(
             > max_cost_increase,
             "Token cost per merged PR grew faster than the guardrail: check routing and loops.",
         ),
+        (cheaper_but_worse is not None, cheaper_but_worse or ""),
     )
     return tuple(message for triggered, message in checks if triggered)

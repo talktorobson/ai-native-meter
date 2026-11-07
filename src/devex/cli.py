@@ -2,7 +2,8 @@
 writes a self-contained HTML file; ``fetch`` snapshots real PRs from a public GitHub repo.
 ``--source real`` runs ``report`` and ``dashboard`` on committed snapshots instead of synthetic
 data; ``compare`` puts the real-data headlines of several repositories side by side;
-``engineers`` ranks engineers by KPI on a snapshot, under pseudonyms unless ``--logins``."""
+``engineers`` ranks engineers by KPI on a snapshot, under pseudonyms unless ``--logins``;
+``spend`` meters token spend per accepted outcome from usage events (synthetic by default)."""
 
 from __future__ import annotations
 
@@ -25,12 +26,18 @@ from devex import (
     real,
     review_eval,
     routing,
+    spend,
     synthetic,
+    synthetic_usage,
+    usage,
     vendor_scorecard,
 )
 
 DATA = Path(__file__).resolve().parents[2] / "data"
 SNAPSHOT = DATA / "real" / "microsoft-vscode.json"
+USAGE_EVENTS = DATA / "usage_events.jsonl"
+PRICES = DATA / "model_prices.json"
+CONTEXT_BUDGET = 400
 ENGINEERS = 120
 
 
@@ -231,7 +238,9 @@ def cmd_eval_review(args: argparse.Namespace) -> str:
 def cmd_context(args: argparse.Namespace) -> str:
     graph = context.load_graph(args.graph)
     now = datetime.fromisoformat(args.now)
-    pack = context.retrieve(graph, args.query, budget_tokens=args.budget, now=now)
+    pack = context.retrieve(
+        graph, args.query, budget_tokens=int(args.budget or CONTEXT_BUDGET), now=now
+    )
     picked = "\n".join(
         f"| {s.entity.id} | {s.entity.kind} | {s.score:.2f} | {s.reason} |" for s in pack.items
     )
@@ -270,6 +279,32 @@ def cmd_route(args: argparse.Namespace) -> str:
             f"{report.routed_expected_quality:.1%}",
         )
     )
+
+
+def spend_report(args: argparse.Namespace) -> spend.SpendReport:
+    """Usage events costed at the dated price table. With the default synthetic events, the
+    budget and the before/after split default to the demo's quarter budget and routing change."""
+    demo = Path(args.events) == USAGE_EVENTS
+    table = usage.load_prices(args.prices)
+    events = usage.load_events(args.events)
+    try:
+        costed = usage.cost(events, table)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+    split = args.split or (synthetic_usage.ROUTING_CHANGE.isoformat() if demo else None)
+    return spend.analyze(
+        costed,
+        table,
+        by=args.by,
+        budget_usd=args.budget or (synthetic_usage.BUDGET_USD if demo else None),
+        split=date.fromisoformat(split) if split else None,
+        hourly_cost=args.hourly_cost,
+        top=args.top,
+    )
+
+
+def cmd_spend(args: argparse.Namespace) -> str:
+    return spend.to_markdown(spend_report(args))
 
 
 def _motion_fits(args: argparse.Namespace) -> tuple[motion_fit.MotionFit, ...]:
@@ -343,6 +378,7 @@ def dashboard_data(args: argparse.Namespace) -> dashboard.DashboardData:
         min_quality=args.min_quality,
         motion_fits=fits,
         decision=_analysis(args, fits),
+        spend=spend_report(args),
     )
 
 
@@ -410,7 +446,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="decide: override one criterion weight (repeatable); the others rescale",
     )
     parser.add_argument("--query", default="add idempotency to the batch transfers endpoint")
-    parser.add_argument("--budget", type=int, default=400)
+    parser.add_argument(
+        "--budget",
+        type=float,
+        help=f"context: token budget (default {CONTEXT_BUDGET}); spend: quarter budget in USD "
+        f"(default {synthetic_usage.BUDGET_USD:,.0f} for the synthetic events, else none)",
+    )
     parser.add_argument("--now", default="2026-11-01T00:00:00")
     parser.add_argument("--min-quality", type=float, default=0.9)
     parser.add_argument(
@@ -461,7 +502,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="prs_per_week",
         help="engineers: KPI to sort on (default prs_per_week)",
     )
-    parser.add_argument("--top", type=int, default=15, help="engineers: rows to show")
+    parser.add_argument("--top", type=int, default=15, help="engineers/spend: rows to show")
     parser.add_argument(
         "--min-prs",
         type=int,
@@ -474,6 +515,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="engineers: show real GitHub logins instead of pseudonyms (local use only; "
         "never in published artifacts)",
     )
+    parser.add_argument(
+        "--events",
+        default=str(USAGE_EVENTS),
+        help="spend: usage events, .jsonl/.csv (generic schema) or .json (list, or OTLP JSON "
+        "GenAI spans); default the synthetic demo",
+    )
+    parser.add_argument("--prices", default=str(PRICES), help="spend: dated price table")
+    parser.add_argument(
+        "--by", choices=("model", "team", "surface", "task"), default="model", help="spend"
+    )
+    parser.add_argument(
+        "--split", help="spend: compare before and after this date, with team guards (YYYY-MM-DD)"
+    )
+    parser.add_argument(
+        "--hourly-cost",
+        type=float,
+        default=100.0,
+        help="spend: assumed loaded cost of an engineer-hour, USD, for the value check",
+    )
     commands = {
         "report": cmd_report,
         "eval-review": cmd_eval_review,
@@ -485,6 +545,7 @@ def build_parser() -> argparse.ArgumentParser:
         "fetch": cmd_fetch,
         "compare": cmd_compare,
         "engineers": cmd_engineers,
+        "spend": cmd_spend,
     }
     parser.add_argument("command", choices=commands)
     parser.set_defaults(commands=commands)

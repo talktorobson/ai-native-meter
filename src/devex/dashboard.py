@@ -19,6 +19,7 @@ from devex.metrics import PullRequest, Scorecard, Window
 from devex.motion_fit import MOTIONS, MotionFit
 from devex.review_eval import EvalReport
 from devex.routing import RoutingReport
+from devex.spend import SpendReport
 from devex.vendor_scorecard import CRITERIA, contributions
 
 __all__ = [
@@ -125,6 +126,7 @@ class DashboardData:
     min_quality: float
     motion_fits: tuple[MotionFit, ...]
     decision: Analysis
+    spend: SpendReport | None = None
 
 
 def weekly_windows(window: Window) -> tuple[Window, ...]:
@@ -577,6 +579,20 @@ def _decision(fits: Sequence[MotionFit], analysis: Analysis) -> str:
     )
 
 
+def _token_economics(report: SpendReport | None) -> str:
+    if report is None:
+        return ""
+    from devex import dashboard_spend  # it builds on this module's chart helpers
+
+    return _section(
+        "Token economics",
+        "What the AI spend buys, metered per accepted change (merged, not reverted) rather "
+        "than per token. Synthetic usage events: a 4-team org adopts eval-driven routing and a "
+        "shared prompt cache mid-quarter; one team forces the small model everywhere.",
+        dashboard_spend.section(report),
+    )
+
+
 CSS = """
 *{box-sizing:border-box}
 body{margin:0;color:#0f172a;background:#f8fafc;
@@ -634,6 +650,8 @@ ul.why li{margin-bottom:4px}
 table.compact{font-size:13px;margin-top:8px}table.compact td,table.compact th{padding:4px 8px}
 .badge.motion{background:#e0e7ff;color:#3730a3;white-space:nowrap}
 footer{margin-top:40px;font-size:12.5px;color:#64748b}
+.tile.blank{border-style:dashed}td.nm{white-space:nowrap}.tile.blank .value{color:#cbd5e1}
+.telemetry{background:#f1f5f9;border-radius:10px;padding:12px 16px;margin-top:12px;font-size:13.5px}
 """
 
 
@@ -676,6 +694,7 @@ def render(data: DashboardData) -> str:
                 "Cheapest model whose measured pass rate clears the bar, per task class.",
                 _routing(data.routing, data.min_quality),
             ),
+            _token_economics(data.spend),
             _section(
                 "Build vs partner: make, co-build or buy",
                 "Stage 1 decides whether to own a capability; Stage 2 scores concrete options "

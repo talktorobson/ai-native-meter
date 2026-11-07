@@ -85,6 +85,17 @@ because individual numbers are for distribution and coaching, not leaderboards
 [The KPI dashboard on synthetic data](dashboard.html) shows what public data cannot: token
 cost, evals and routing. Every module's output is in [the demo output](demo-output.md).
 
+### Token economics
+
+Inside a company, AI spend can be metered per call and joined to the change it worked on. The
+headline is then **cost per accepted change** (merged, not reverted), not cost per token. In
+the synthetic demo, eval-driven routing and a shared prompt cache cut it from $7.30 to $2.32
+while the org revert rate stayed within its guard. The one team that forced the smallest
+model everywhere cut its cost to $0.29, saw its revert rate rise from 3.6% to 9.7%, and
+tripped the "cheaper but worse" guard. On the public repositories these tiles are blank: PRs
+do not reveal token spend. See [09 · Token economics](09-token-economics.md) and
+[ADR-0006](adr/0006-cost-per-accepted-outcome.md).
+
 ## Read the case
 
 | # | Document | In one line |
@@ -97,6 +108,7 @@ cost, evals and routing. Every module's output is in [the demo output](demo-outp
 | 06 | [Real data](06-real-data.md) | The same metrics on 10,670 PRs from microsoft/vscode: method, heuristics, results and limits |
 | 07 | [A second repository](07-dotnet-runtime.md) | The same metrics on 4,325 PRs from dotnet/runtime, and both repositories side by side |
 | 08 | [Engineers](08-engineers.md) | Per-engineer KPIs under pseudonyms: distribution, guardrails, and AI adopters vs others a year apart |
+| 09 | [Token economics](09-token-economics.md) | Metering AI spend per call: schema, telemetry adapters, prices as data, and cost per accepted change |
 
 ### Decision records
 
@@ -105,6 +117,7 @@ cost, evals and routing. Every module's output is in [the demo output](demo-outp
 - [ADR-0003 · Route models by internal eval results, not by vendor benchmarks](adr/0003-route-by-evals.md)
 - [ADR-0004 · Make build-vs-partner decisions as data, not as debate](adr/0004-decisions-as-data.md)
 - [ADR-0005 · Individual metrics are for distribution and coaching, not leaderboards](adr/0005-individual-metrics-are-not-leaderboards.md)
+- [ADR-0006 · Meter cost per accepted outcome, not per token](adr/0006-cost-per-accepted-outcome.md)
 
 ## Run it
 

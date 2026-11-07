@@ -1,0 +1,14 @@
+{
+  "note": "Illustrative list prices in USD per million tokens, as published by each provider for 2025. Verify against the provider's current price list before using them for real decisions; negotiated, batch and regional prices differ. Each tier maps the model to a routing catalog tier (src/devex/routing.py).",
+  "currency": "USD",
+  "unit": "per million tokens",
+  "prices": [
+    {"provider": "anthropic", "model": "claude-opus-4", "tier": "frontier-large", "effective_from": "2025-05-22", "input": 15.0, "output": 75.0, "cached_input": 1.5},
+    {"provider": "anthropic", "model": "claude-sonnet-4", "tier": "mid-tier", "effective_from": "2025-05-22", "input": 3.0, "output": 15.0, "cached_input": 0.3},
+    {"provider": "anthropic", "model": "claude-3-5-haiku", "tier": "small-fast", "effective_from": "2024-11-04", "input": 0.8, "output": 4.0, "cached_input": 0.08},
+    {"provider": "openai", "model": "o3", "tier": "frontier-large", "effective_from": "2025-04-16", "input": 10.0, "output": 40.0, "cached_input": 2.5},
+    {"provider": "openai", "model": "o3", "tier": "frontier-large", "effective_from": "2025-06-10", "input": 2.0, "output": 8.0, "cached_input": 0.5},
+    {"provider": "openai", "model": "gpt-4.1", "tier": "mid-tier", "effective_from": "2025-04-14", "input": 2.0, "output": 8.0, "cached_input": 0.5},
+    {"provider": "openai", "model": "gpt-4.1-mini", "tier": "small-fast", "effective_from": "2025-04-14", "input": 0.4, "output": 1.6, "cached_input": 0.1}
+  ]
+}

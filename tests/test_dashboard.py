@@ -180,10 +180,16 @@ def test_render_is_self_contained_and_covers_every_section(data):
         "Win probability over 2,000 seeded draws",
         "Verdict (go):",
         "What would flip it",
+        "Token economics",
+        "Cost per accepted change",
+        "Weekly spend by model tier",
+        "Before and after the routing change",
+        "Team guards",
+        "Budget burn",
     ):
         assert text in html
     assert html.count('class="tile') >= len(dashboard.KPIS)
-    assert html.count("<polyline") == 4
+    assert html.count("<polyline") == 4 + 3
 
 
 def test_render_is_deterministic(data):

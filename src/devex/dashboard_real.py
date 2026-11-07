@@ -6,7 +6,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from html import escape
 
-from devex import dashboard, dashboard_engineers, real
+from devex import dashboard, dashboard_engineers, dashboard_spend, real
 from devex.dashboard import BASELINE_COLOR, CSS, PLATFORM_COLOR, Bar, Kpi, Series
 from devex.github_source import COHORTS
 from devex.metrics import Scorecard
@@ -351,6 +351,11 @@ def render(view: real.RealView, peers: Sequence[real.RealView] = ()) -> str:
             )
             if len(peers) > 1
             else "",
+            dashboard._section(
+                "Token economics: needs telemetry",
+                "Cost per accepted change and the KPIs behind it, left blank on purpose.",
+                dashboard_spend.blank_section(),
+            ),
             dashboard._section(
                 "Limits of this evidence", "Read every number above with these in mind.", _limits()
             ),

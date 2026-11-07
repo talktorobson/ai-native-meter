@@ -5,7 +5,7 @@ import dataclasses
 import pytest
 from conftest import REPO
 
-from devex import cli, dashboard_real, github_source, real
+from devex import cli, dashboard_real, dashboard_spend, github_source, real
 from devex.cli import main
 
 OTHER = "dotnet/runtime"
@@ -122,3 +122,12 @@ def test_cli_reports_a_missing_snapshot(data_dir):
 def test_cli_fetch_takes_exactly_one_repo():
     with pytest.raises(SystemExit, match="fetch needs"):
         main(["fetch", "--repo", REPO, "--repo", OTHER, "--since", "2025-01-01", "--until", "x"])
+
+
+def test_real_dashboards_leave_token_economics_blank(views):
+    for view in views:
+        html = dashboard_real.render(view, views)
+        section = html[html.index("Token economics: needs telemetry") :]
+        section = section[: section.index("Limits of this evidence")]
+        assert section.count("needs telemetry") == len(dashboard_spend.BLANK_TILES) + 1
+        assert dashboard_spend.DOC_URL in section and "$" not in section

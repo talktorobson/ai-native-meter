@@ -24,6 +24,8 @@ jobs:
       - run: ruff format --check .
       - run: pytest -q
       - run: devex demo
+      - name: Token economics runs offline on the committed synthetic events
+        run: devex spend --by team && devex spend --by task
       - name: Dashboard is generated and committed up to date
         run: devex dashboard && git diff --exit-code -- docs/dashboard.html
       - name: Real-data reports and dashboards run offline from the committed snapshots

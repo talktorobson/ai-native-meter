@@ -107,3 +107,16 @@ def test_site_config_and_mermaid_wiring():
     assert "{% include mermaid.html %}" in layout
     assert "language-mermaid" in include
     assert any("```mermaid" in p.read_text() for p in PAGES)
+
+
+@pytest.mark.parametrize("page", [DOCS / "index.md", DOCS.parent / "README.md"])
+def test_token_economics_quotes_match_doc_09(page):
+    text = page.read_text()
+    section = text[text.index("Token economics") :]
+    chapter = (DOCS / "09-token-economics.md").read_text()
+    quotes = re.findall(
+        r"\$\d+(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?%", section[: section.index("\n## ")]
+    )
+
+    assert {"$7.30", "$2.32", "$0.29", "3.6%", "9.7%"} <= set(quotes)
+    assert [q for q in quotes if q not in chapter] == []
