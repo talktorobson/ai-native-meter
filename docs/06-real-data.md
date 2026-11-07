@@ -68,24 +68,24 @@ The first published version of this chapter compared vscode alone. It overstated
 
 | Q3 2026 vs Q3 2025 | Uncorrected (vscode only) | **Corrected (headline)** | Sensitivity: Q3 2026 without `extensions/copilot`-only PRs |
 |---|---|---|---|
-| Merged PRs | 2,346 → 4,742 (+102%) | **3,216 → 4,742 (+47%)** | 2,346 → 4,547 (+94%) |
-| Active engineers | 134 → 184 (+37%) | **157 → 184 (+17%)** | 134 → 165 (+23%) |
-| PRs / engineer / week | 1.33 → 1.96 (+47%) | **1.56 → 1.96 (+26%)** | 1.33 → 2.10 (+57%) |
+| Merged PRs | 2,346 → 4,735 (+102%) | **3,216 → 4,735 (+47%)** | 2,346 → 4,541 (+94%) |
+| Active engineers | 134 → 183 (+37%) | **157 → 183 (+17%)** | 134 → 164 (+22%) |
+| PRs / engineer / week | 1.33 → 1.97 (+48%) | **1.56 → 1.97 (+26%)** | 1.33 → 2.11 (+58%) |
 | AI-assisted share | 6% → 66% | **5% → 66%** | 6% → 67% |
 | Revert rate | 0.6% → 0.7% | **0.5% → 0.7%** | 0.6% → 0.7% |
 
 The sensitivity check runs the other way. It keeps vscode alone in Q3 2025 and removes from
-Q3 2026 the 195 PRs whose changed files all sit under `extensions/copilot`. That is a weak
+Q3 2026 the 194 PRs whose changed files all sit under `extensions/copilot`. That is a weak
 substitute for the correction:
 
-- Only 195 PRs match, against 870 merged in vscode-copilot-chat a year earlier. Copilot work
+- Only 194 PRs match, against 870 merged in vscode-copilot-chat a year earlier. Copilot work
   in Q3 2026 mostly also touches the core (`src/vs`), so a path filter cannot separate it out.
-- The per-engineer gain *rises* to +57%: the filter also drops 19 engineers whose only merged
+- The per-engineer gain *rises* to +58%: the filter also drops 19 engineers whose only merged
   work was in the extension.
 
 The headline uses the baseline correction because it compares the same code in both windows.
 The path filter is shown so the reader can see how much the answer depends on the method:
-merged PRs +47% to +94%, PRs per engineer per week +26% to +57%.
+merged PRs +47% to +94%, PRs per engineer per week +26% to +58%.
 
 ## Method
 
@@ -129,7 +129,7 @@ on recorded fixtures.
 | `ai_assisted` | Any explicit, observable signal: **agent** author (`copilot-swe-agent`, `devin-ai-integration`, `cursor`, `claude`, `chatgpt-codex-connector`, `google-labs-jules`, …); **co-author**: a `Co-authored-by` trailer in the PR body or its last 30 commits naming an AI tool (Copilot, Claude, Cursor, Codex, ChatGPT, Gemini, Devin, Aider, Jules, OpenHands, Windsurf); **marker**: "Generated with <tool>"; **label**: exactly `ai-generated`, `ai-assisted`, `copilot-generated` or `agent-generated` (vscode's area label `copilot` is a product area, not evidence). |
 | Review fix | A Copilot trailer on a commit titled "Apply suggestion(s) from…" or "Potential fix for pull request finding" is kept apart as `review-fix`: the AI touched the change but did not write it. It counts as AI-assisted but forms its own cohort. |
 | Author (engineer) | Agent PRs are credited to the **first human assignee** (who delegated and steered the agent), else to the human who merged it. Engineers in a window are the distinct humans credited with a merged PR. |
-| Bots | Any other bot account (`dependabot`, `vs-code-engineering`, renovate, …) is `is_bot` and never counts as throughput: 14 PRs in Q1 2025, 15 in Q3 2025 (plus 3 in vscode-copilot-chat), 164 in Q3 2026. |
+| Bots | Any other bot account (`dependabot`, `vs-code-engineering`, renovate, …) is `is_bot` and never counts as throughput, as are automation *user* accounts listed in `AUTOMATION_LOGINS` (here `vscodebot-pr`, "VS Code PR Bot", which opens Copilot co-authored PRs): 14 PRs in Q1 2025, 15 in Q3 2025 (plus 3 in vscode-copilot-chat), 171 in Q3 2026. |
 | First review | Earliest review by a human who is not the PR's author. AI reviewers (`copilot-pull-request-reviewer`) are bots and skipped. |
 | Change failure | A PR is `reverted` if a later merged PR **whose title leads with "revert"** references it ("Reverts #N", "revert owner/repo#N", or a PR URL in the same repo) and merges within 28 days. 17 PRs reverted in Q1 2025, 15 in Q3 2025 (plus 1 in vscode-copilot-chat), 31 in Q3 2026. |
 | Cycle time | PR created to merged. |
@@ -146,15 +146,15 @@ Source: https://github.com/microsoft/vscode · merged PRs into `main` · fetched
 
 | Metric | Q1 2025 (reference) | Q3 2025 (baseline) | Q3 2026 (current) | Q3 2026 vs Q3 2025 | Q3 2026 vs Q1 2025 |
 |---|---|---|---|---|---|
-| Merged PRs | 2,498 | 3,216 | 4,742 | +47% | +90% |
-| Active engineers | 108 | 157 | 184 | +17% | +70% |
-| PRs / engineer / week | 1.80 | 1.56 | 1.96 | +26% | +9% |
-| Quality-adjusted PRs / engineer / week | 1.79 | 1.55 | 1.95 | +26% | +9% |
+| Merged PRs | 2,498 | 3,216 | 4,735 | +47% | +90% |
+| Active engineers | 108 | 157 | 183 | +17% | +69% |
+| PRs / engineer / week | 1.80 | 1.56 | 1.97 | +26% | +9% |
+| Quality-adjusted PRs / engineer / week | 1.79 | 1.55 | 1.96 | +26% | +9% |
 | Revert rate (change failure proxy) | 0.7% | 0.5% | 0.7% | +0.2 pp | -0.0 pp |
 | Median cycle time (h) | 0.5 | 0.8 | 2.5 | +210% | +401% |
 | Median time to first human review (h) | 0.3 | 0.4 | 1.2 | +195% | +327% |
 | Median PR size (lines) | 21 | 20 | 121 | +505% | +476% |
-| AI-assisted share | 0% | 5% | 66% | +61.8 pp | +66.5 pp |
+| AI-assisted share | 0% | 5% | 66% | +61.8 pp | +66.4 pp |
 | Token cost per merged PR | not observable | not observable | not observable | n/a | n/a |
 
 **Repository consolidation** (Q3 2026 vs Q3 2025)
@@ -163,9 +163,9 @@ microsoft/vscode-copilot-chat's code now lives in microsoft/vscode under `extens
 
 | Comparison | Merged PRs | Active engineers | PRs / engineer / week | AI-assisted share | Revert rate | Median PR size |
 |---|---|---|---|---|---|---|
-| microsoft/vscode only (uncorrected) | 2,346 → 4,742 (+102%) | 134 → 184 (+37%) | 1.33 → 1.96 (+47%) | 6% → 66% (+60.8 pp) | 0.6% → 0.7% (+0.0 pp) | 18 → 121 (+572%) |
-| **Q3 2025 counts microsoft/vscode-copilot-chat (headline)** | 3,216 → 4,742 (+47%) | 157 → 184 (+17%) | 1.56 → 1.96 (+26%) | 5% → 66% (+61.8 pp) | 0.5% → 0.7% (+0.2 pp) | 20 → 121 (+505%) |
-| Q3 2026 without PRs only in `extensions/copilot` | 2,346 → 4,547 (+94%) | 134 → 165 (+23%) | 1.33 → 2.10 (+57%) | 6% → 67% (+61.3 pp) | 0.6% → 0.7% (+0.0 pp) | 18 → 122 (+578%) |
+| microsoft/vscode only (uncorrected) | 2,346 → 4,735 (+102%) | 134 → 183 (+37%) | 1.33 → 1.97 (+48%) | 6% → 66% (+60.8 pp) | 0.6% → 0.7% (+0.0 pp) | 18 → 121 (+572%) |
+| **Q3 2025 counts microsoft/vscode-copilot-chat (headline)** | 3,216 → 4,735 (+47%) | 157 → 183 (+17%) | 1.56 → 1.97 (+26%) | 5% → 66% (+61.8 pp) | 0.5% → 0.7% (+0.2 pp) | 20 → 121 (+505%) |
+| Q3 2026 without PRs only in `extensions/copilot` | 2,346 → 4,541 (+94%) | 134 → 164 (+22%) | 1.33 → 2.11 (+58%) | 6% → 67% (+61.3 pp) | 0.6% → 0.7% (+0.0 pp) | 18 → 123 (+583%) |
 
 **AI cohorts** (cohort engineers are the distinct authors in that cohort)
 
@@ -177,7 +177,7 @@ microsoft/vscode-copilot-chat's code now lives in microsoft/vscode under `extens
 | Q3 2025 | AI review fix only | 1 | 0% | 1 | 0.0% | 75.8 | 75.8 | 426 |
 | Q3 2025 | no AI signal | 3,066 | 95% | 156 | 0.5% | 0.7 | 0.4 | 20 |
 | Q3 2026 | agent-authored | 176 | 4% | 18 | 0.0% | 12.2 | 4.3 | 51 |
-| Q3 2026 | AI co-authored | 2,901 | 61% | 99 | 0.7% | 2.5 | 1.1 | 173 |
+| Q3 2026 | AI co-authored | 2,894 | 61% | 98 | 0.7% | 2.5 | 1.1 | 174 |
 | Q3 2026 | AI review fix only | 75 | 2% | 24 | 1.3% | 3.8 | 1.4 | 65 |
 | Q3 2026 | no AI signal | 1,590 | 34% | 138 | 0.7% | 2.1 | 1.0 | 75 |
 
@@ -185,9 +185,9 @@ microsoft/vscode-copilot-chat's code now lives in microsoft/vscode under `extens
 
 | Evidence | Q1 2025 | Q3 2025 | Q3 2026 |
 |---|---|---|---|
-| `co-author:copilot` | 0 | 31 | 2,895 |
+| `co-author:copilot` | 0 | 31 | 2,888 |
 | `agent:copilot-swe-agent` | 0 | 119 | 176 |
-| `review-fix:copilot` | 0 | 2 | 148 |
+| `review-fix:copilot` | 0 | 2 | 147 |
 | `marker:copilot` | 0 | 1 | 110 |
 | `co-author:claude` | 0 | 0 | 47 |
 | `marker:claude` | 0 | 0 | 32 |
@@ -219,7 +219,7 @@ All numbers are like for like: the Q3 2025 baseline counts vscode plus vscode-co
   number should be quoted alone. Even with vscode-copilot-chat counted, Q3 2025 is the weakest
   of the three windows: 1.56 PRs per engineer per week, against 1.80 in Q1 2025. So part of
   the year-over-year gain is a soft baseline. Merged PRs grew by 47% and engineers by 17%.
-  The uncorrected vscode-only figures (+102% merged PRs, +47% per engineer) overstated the
+  The uncorrected vscode-only figures (+102% merged PRs, +48% per engineer) overstated the
   gain, because code that moved into the repository was counted as new work.
 - **Quality held, by the only proxy available.** The revert rate is 0.5% in Q3 2025 and
   0.7% in both Q3 2026 and Q1 2025: flat within noise. AI co-authored PRs revert no more often
@@ -232,7 +232,7 @@ All numbers are like for like: the Q3 2025 baseline counts vscode plus vscode-co
 
   This is not only the AI cohorts: PRs with no AI signal also grew (20 to 75 lines) and
   slowed (0.7 h to 2.1 h cycle time). Either the team's way of working changed, or AI use
-  without a trailer is common, or both. AI co-authored PRs are the largest (median 173 lines).
+  without a trailer is common, or both. AI co-authored PRs are the largest (median 174 lines).
   Agent PRs wait longest for a human (4.3 h to first review), though their median cycle time
   more than halved, from 26.0 h to 12.2 h. **Review is the new bottleneck**, as the
   architecture chapter argues.
@@ -248,8 +248,10 @@ All numbers are like for like: the Q3 2025 baseline counts vscode plus vscode-co
 - **AI attribution is incomplete.** A window with *no observable* signal is not a window
   with *no* AI use: inline completions leave no trace. The reference Q1 2025 is "pre-AI" only
   in that sense. PRs with more than 30 commits are only scanned on
-  their last 30. One user account, `vscodebot-pr` (7 PRs), opens Copilot co-authored PRs
-  and is counted as a human engineer.
+  their last 30. Automation *user* accounts are recognised only from a curated list
+  (`AUTOMATION_LOGINS`); one missing from it counts as a human engineer. `vscodebot-pr`
+  (7 PRs in Q3 2026) was found that way and added, which moved Q3 2026 from 4,742 to 4,735
+  merged PRs and from 184 to 183 engineers, and left every headline percentage unchanged.
 - **Correlation is not causation.** Team size, roadmap, release process and review
   norms changed between the windows. Comparing Q3 with Q3 removes seasonality, nothing
   else. The baseline is also partly treated: Q3 2025 already has 5% AI-assisted PRs.
@@ -272,8 +274,11 @@ All numbers are like for like: the Q3 2025 baseline counts vscode plus vscode-co
 gh auth login                                   # any account; public data only
 devex fetch --repo microsoft/vscode --since 2026-01-01 --until 2026-04-01   # add a window
 devex fetch --repo dotnet/runtime --since 2025-01-01 --until 2025-04-01     # another repo
-devex report --source real --snapshot data/real/dotnet-runtime.json
+devex report --source real --repo dotnet/runtime
+devex compare                                   # every committed snapshot, side by side
 ```
+
+The second example, [dotnet/runtime](07-dotnet-runtime.md), was fetched exactly this way.
 
 `fetch` merges windows into the snapshot. Reports compare the latest window against the one
 a year earlier (else the earliest), with any earlier window as a pre-AI reference; pass

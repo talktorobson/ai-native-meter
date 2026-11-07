@@ -37,26 +37,37 @@ def _headline(page: Path) -> str:
     return text[start : text.index("\n## ", start + 1)]
 
 
-def test_index_headline_numbers_match_real_data_chapter():
-    chapter = re.sub(
-        r"(\d[\d,.]*%?(?: h)?) to (\d)", r"\1 → \2", _plain((DOCS / "06-real-data.md").read_text())
+CHAPTERS = ("06-real-data.md", "07-dotnet-runtime.md")
+DASHBOARDS = ("dashboard.html", "dashboard-real.html", "dashboard-real-dotnet-runtime.html")
+
+
+def _row(chapter: str, prefix: str) -> str:
+    return next(
+        line for line in (DOCS / chapter).read_text().splitlines() if line.startswith(prefix)
     )
+
+
+def test_index_headline_numbers_match_real_data_chapters():
+    text = _plain("".join((DOCS / name).read_text() for name in CHAPTERS))
+    chapter = re.sub(r"(\d[\d,.]*%?(?: h)?) to (\d)", r"\1 → \2", text)
     transitions = TRANSITION.findall(_plain(_headline(DOCS / "index.md")))
 
-    assert len(transitions) >= 6
+    assert len(transitions) >= 10
     assert [t for t in transitions if t not in chapter] == []
 
 
-def test_index_quotes_per_engineer_gain_against_both_baselines():
-    headline = _plain(_headline(DOCS / "index.md"))
-    row = next(
-        line
-        for line in (DOCS / "06-real-data.md").read_text().splitlines()
-        if line.startswith("| PRs / engineer / week | 1.80")
-    )
+@pytest.mark.parametrize(
+    ("chapter", "row", "quotes"),
+    [
+        ("06-real-data.md", "| PRs / engineer / week | 1.80", ("1.56 → 1.97 (+26%)", "+9%")),
+        ("07-dotnet-runtime.md", "| PRs / engineer / week | 0.47", ("0.58 → 0.81 (+41%)", "+71%")),
+    ],
+)
+def test_index_quotes_per_engineer_gain_against_both_baselines(chapter, row, quotes):
+    year_over_year, vs_reference = quotes[0].rsplit("(", 1)[1].rstrip(")"), quotes[1]
 
-    assert "| +26% | +9% |" in row
-    assert all(s in headline for s in ("1.56 → 1.96 (+26%)", "+9%", "(1.80)"))
+    assert f"| {year_over_year} | {vs_reference} |" in _row(chapter, row)
+    assert all(q in _plain(_headline(DOCS / "index.md")) for q in quotes)
 
 
 @pytest.mark.parametrize("page", PAGES, ids=lambda p: str(p.relative_to(DOCS)))
@@ -77,10 +88,10 @@ def test_index_links_every_doc_adr_and_dashboard():
     linked = {target.partition("#")[0] for target in _local_links(DOCS / "index.md")}
     expected = {str(p.relative_to(DOCS)) for p in PAGES if p.name != "index.md"}
 
-    assert expected | {"dashboard.html", "dashboard-real.html"} <= linked
+    assert expected | set(DASHBOARDS) <= linked
 
 
-@pytest.mark.parametrize("name", ["dashboard.html", "dashboard-real.html"])
+@pytest.mark.parametrize("name", DASHBOARDS)
 def test_dashboards_are_served_verbatim(name):
     assert not (DOCS / name).read_text().startswith("---")
 

@@ -21,7 +21,8 @@ Heuristics (documented in ``docs/06-real-data.md``):
 * **Who did the work.** Agent PRs are credited to the first human assignee (the engineer who
   delegated and steered the agent), else the human who merged it.
 * **Bots.** Any other bot (dependabot, renovate, release automation) is ``is_bot`` and never
-  counts as throughput.
+  counts as throughput: GitHub Apps, plus the automation *user* accounts in
+  ``AUTOMATION_LOGINS``, which also apply to snapshots fetched before a login was added.
 * **First review.** Earliest review by a human who is not the PR's author; AI reviewers such as
   ``copilot-pull-request-reviewer`` are bots and are skipped.
 * **Change failure proxy.** A PR is ``reverted`` if a later merged PR whose title leads with
@@ -114,7 +115,18 @@ AI_TOOLS = (
     "windsurf",
 )
 AI_LABELS = frozenset({"ai-generated", "ai-assisted", "copilot-generated", "agent-generated"})
-AUTOMATION_LOGINS = frozenset({"dependabot", "renovate", "renovate-bot", "greenkeeper", "snyk-bot"})
+AUTOMATION_LOGINS = frozenset(
+    {
+        "dependabot",
+        "renovate",
+        "renovate-bot",
+        "greenkeeper",
+        "snyk-bot",
+        "dotnet-bot",
+        "dotnet-renovate-bot",
+        "vscodebot-pr",
+    }
+)
 COMMITS_SCANNED = 30
 REVERT_HORIZON = timedelta(days=28)
 SCOPE_DEPTH = 2
@@ -330,7 +342,7 @@ def to_pull_requests(snapshot: Snapshot) -> tuple[PullRequest, ...]:
             lines_changed=r["lines"],
             ai_assisted=bool(r["ai"]),
             reverted=pr_id(r, snapshot.repo) in reverted,
-            is_bot=r["bot"],
+            is_bot=r["bot"] or _login({"login": r["login"]}) in AUTOMATION_LOGINS,
         )
         for r in snapshot.records
     )

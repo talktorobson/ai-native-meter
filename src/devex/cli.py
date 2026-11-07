@@ -1,6 +1,7 @@
 """Command line entry point: ``devex <command>``. Commands print Markdown; ``dashboard``
 writes a self-contained HTML file; ``fetch`` snapshots real PRs from a public GitHub repo.
-``--source real`` runs ``report`` and ``dashboard`` on that snapshot instead of synthetic data."""
+``--source real`` runs ``report`` and ``dashboard`` on committed snapshots instead of synthetic
+data; ``compare`` puts the real-data headlines of several repositories side by side."""
 
 from __future__ import annotations
 
@@ -66,39 +67,68 @@ def _review_reports(
     )
 
 
+def snapshot_path(repo: str) -> Path:
+    return DATA / "real" / f"{repo.replace('/', '-').lower()}.json"
+
+
+def committed_snapshots() -> tuple[Path, ...]:
+    """Every snapshot in ``data/real``, the original example (microsoft/vscode) first."""
+    others = sorted(p for p in (DATA / "real").glob("*.json") if p != SNAPSHOT)
+    return (SNAPSHOT, *others) if SNAPSHOT.exists() else tuple(others)
+
+
 def _snapshot_path(args: argparse.Namespace) -> Path:
     if args.snapshot:
         return Path(args.snapshot)
-    repo = getattr(args, "into", None) or args.repo
-    if repo:
-        return DATA / "real" / f"{repo.replace('/', '-').lower()}.json"
-    return SNAPSHOT
+    repo = getattr(args, "into", None) or next(iter(args.repo or ()), None)
+    return snapshot_path(repo) if repo else SNAPSHOT
 
 
-def _real_view(args: argparse.Namespace) -> real.RealView:
-    snapshot = github_source.load_snapshot(_snapshot_path(args))
+def _snapshot_paths(args: argparse.Namespace, *, every: bool) -> tuple[Path, ...]:
+    """``--snapshot``, else one snapshot per ``--repo``, else all committed (``every``) or the
+    original example."""
+    if args.snapshot:
+        return (Path(args.snapshot),)
+    if args.repo:
+        return tuple(map(snapshot_path, args.repo))
+    return committed_snapshots() if every else (SNAPSHOT,)
+
+
+def _real_views(args: argparse.Namespace, *, every: bool) -> tuple[real.RealView, ...]:
+    missing = [str(p) for p in _snapshot_paths(args, every=every) if not p.exists()]
+    if missing:
+        raise SystemExit(f"No snapshot at {', '.join(missing)}; run devex fetch first")
     try:
-        return real.build(snapshot, baseline=args.baseline, current=args.current)
+        return tuple(
+            real.build(github_source.load_snapshot(p), baseline=args.baseline, current=args.current)
+            for p in _snapshot_paths(args, every=every)
+        )
     except ValueError as error:
         raise SystemExit(str(error)) from error
 
 
+def cmd_compare(args: argparse.Namespace) -> str:
+    return real.compare_markdown(_real_views(args, every=True))
+
+
 def cmd_fetch(args: argparse.Namespace) -> str:
-    if not (args.repo and args.since and args.until) or args.repo.count("/") != 1:
+    repos = args.repo or ()
+    if len(repos) != 1 or not (args.since and args.until) or repos[0].count("/") != 1:
         raise SystemExit("fetch needs --repo OWNER/NAME, --since YYYY-MM-DD and --until YYYY-MM-DD")
+    repo = repos[0]
     window = metrics.Window(datetime.fromisoformat(args.since), datetime.fromisoformat(args.until))
     path = _snapshot_path(args)
     base = github_source.load_snapshot(path) if path.exists() else None
     if args.into:
         _merged(args, base, window, "", "", ())  # fail before the network, not after
     branch, records = github_source.fetch(
-        args.repo, window, log=lambda line: print(line, file=sys.stderr)
+        repo, window, log=lambda line: print(line, file=sys.stderr)
     )
     fetched_on = args.fetched_on or date.today().isoformat()
     snapshot = _merged(args, base, window, fetched_on, branch, records)
     github_source.write_snapshot(snapshot, path)
     return (
-        f"Fetched {len(records):,} merged PRs from {args.repo} ({args.since} to {args.until}); "
+        f"Fetched {len(records):,} merged PRs from {repo} ({args.since} to {args.until}); "
         f"{path} now holds {len(snapshot.records):,} PRs in {len(snapshot.windows)} window(s)."
     )
 
@@ -111,13 +141,14 @@ def _merged(
     branch: str,
     records: tuple[dict, ...],
 ) -> github_source.Snapshot:
+    repo = args.repo[0]
     if not args.into:
-        return github_source.merge_snapshot(base, args.repo, branch, window, fetched_on, records)
+        return github_source.merge_snapshot(base, repo, branch, window, fetched_on, records)
     if base is None or base.repo.lower() != args.into.lower():
         raise SystemExit(f"--into needs an existing snapshot of {args.into}")
     try:
         return github_source.merge_predecessor(
-            base, args.repo, window, fetched_on, args.moved_to or "", records
+            base, repo, window, fetched_on, args.moved_to or "", records
         )
     except ValueError as error:
         raise SystemExit(str(error)) from error
@@ -125,7 +156,7 @@ def _merged(
 
 def cmd_report(args: argparse.Namespace) -> str:
     if args.source == "real":
-        return real.to_markdown(_real_view(args))
+        return "\n\n".join(map(real.to_markdown, _real_views(args, every=False)))
     before_prs, after_prs = _rollout()
     before = metrics.scorecard(before_prs, ENGINEERS, synthetic.QUARTER_1)
     after = metrics.scorecard(after_prs, ENGINEERS, synthetic.QUARTER_2)
@@ -296,17 +327,40 @@ def dashboard_data(args: argparse.Namespace) -> dashboard.DashboardData:
     )
 
 
-def cmd_dashboard(args: argparse.Namespace) -> str:
-    is_real = args.source == "real"
-    out = Path(args.out or ("docs/dashboard-real.html" if is_real else "docs/dashboard.html"))
-    html = (
-        dashboard_real.render(_real_view(args))
-        if is_real
-        else dashboard.render(dashboard_data(args))
-    )
+def _write(out: Path, html: str) -> str:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")
     return f"Dashboard written to {out}"
+
+
+def _real_dashboards(args: argparse.Namespace) -> str:
+    """One page per snapshot (all committed ones by default), each with the cross-repo table of
+    every committed snapshot, so a page reads the same however it was regenerated."""
+    views = _real_views(args, every=True)
+    if args.out and len(views) > 1:
+        raise SystemExit("--out needs a single --repo or --snapshot")
+    built = {v.snapshot.repo: v for v in views}
+    peers = (
+        views
+        if args.snapshot
+        else tuple(
+            built.get(s.repo) or real.build(s, baseline=args.baseline, current=args.current)
+            for s in map(github_source.load_snapshot, committed_snapshots())
+        )
+    )
+    return "\n".join(
+        _write(
+            Path(args.out or Path("docs") / dashboard_real.page_name(v.snapshot.repo)),
+            dashboard_real.render(v, peers),
+        )
+        for v in views
+    )
+
+
+def cmd_dashboard(args: argparse.Namespace) -> str:
+    if args.source == "real":
+        return _real_dashboards(args)
+    return _write(Path(args.out or "docs/dashboard.html"), dashboard.render(dashboard_data(args)))
 
 
 def _weight(text: str) -> tuple[str, float]:
@@ -342,7 +396,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-quality", type=float, default=0.9)
     parser.add_argument(
         "--out",
-        help="dashboard output path (default docs/dashboard.html, or docs/dashboard-real.html)",
+        help="dashboard output path (default docs/dashboard.html; with --source real, one "
+        "docs/dashboard-real*.html page per snapshot)",
     )
     parser.add_argument(
         "--source",
@@ -351,7 +406,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="report/dashboard: synthetic rollout, or the committed real-PR snapshot",
     )
     parser.add_argument("--snapshot", help=f"real-PR snapshot path (default {SNAPSHOT.name})")
-    parser.add_argument("--repo", help="fetch: public GitHub repo as OWNER/NAME")
+    parser.add_argument(
+        "--repo",
+        action="append",
+        help="public GitHub repo as OWNER/NAME; fetch takes one, report/dashboard/compare "
+        "take any number (repeat the flag); its snapshot is data/real/OWNER-NAME.json",
+    )
     parser.add_argument("--since", help="fetch: window start date, inclusive (YYYY-MM-DD)")
     parser.add_argument("--until", help="fetch: window end date, exclusive (YYYY-MM-DD)")
     parser.add_argument("--fetched-on", help="fetch: date to record (default today)")
@@ -379,6 +439,7 @@ def build_parser() -> argparse.ArgumentParser:
         "demo": cmd_demo,
         "dashboard": cmd_dashboard,
         "fetch": cmd_fetch,
+        "compare": cmd_compare,
     }
     parser.add_argument("command", choices=commands)
     parser.set_defaults(commands=commands)

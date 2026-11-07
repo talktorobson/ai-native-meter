@@ -56,6 +56,8 @@ def test_ai_cohort_takes_the_strongest_evidence(evidence, cohort):
         ({"login": "dependabot[bot]", "__typename": "Bot"}, False, True),
         ({"login": "renovate", "__typename": "User"}, False, True),
         ({"login": "vs-code-engineering", "__typename": "Bot"}, False, True),
+        ({"login": "dotnet-bot", "__typename": "User"}, False, True),
+        ({"login": "dotnet-maestro", "__typename": "Bot"}, False, True),
         ({"login": "alice", "__typename": "User"}, False, False),
         (None, False, False),
     ],

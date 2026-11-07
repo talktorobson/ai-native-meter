@@ -26,7 +26,9 @@ jobs:
       - run: devex demo
       - name: Dashboard is generated and committed up to date
         run: devex dashboard && git diff --exit-code -- docs/dashboard.html
-      - name: Real-data report and dashboard run offline from the committed snapshot
+      - name: Real-data reports and dashboards run offline from the committed snapshots
         run: |
-          devex report --source real
-          devex dashboard --source real && git diff --exit-code -- docs/dashboard-real.html
+          devex report --source real --repo microsoft/vscode --repo dotnet/runtime
+          devex compare
+          devex dashboard --source real && git diff --exit-code -- 'docs/dashboard-real*.html'
+          test -z "$(git status --porcelain -- docs)"

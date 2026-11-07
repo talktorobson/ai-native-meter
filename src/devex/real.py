@@ -1,7 +1,7 @@
 """The metrics engine run on a real snapshot: current window vs baseline window (year over year
 by default), an optional earlier reference window, AI cohorts, the evidence behind the AI
-attribution, the Goodhart guards, and how much a repository consolidation moves the headline.
-Pure functions only."""
+attribution, the Goodhart guards, how much a repository consolidation moves the headline, and the
+headline of several repositories side by side. Pure functions only."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from devex.github_source import COHORTS, Snapshot
 from devex.metrics import PullRequest, Scorecard, Window
 
 __all__ = [
+    "COMPARE_ROWS",
     "CONSOLIDATION_ROWS",
     "LIMITS",
     "Period",
@@ -23,6 +24,9 @@ __all__ = [
     "build",
     "change",
     "cohorts",
+    "compare_cell",
+    "compare_header",
+    "compare_markdown",
     "consolidation",
     "evidence_counts",
     "moved_note",
@@ -446,5 +450,64 @@ def to_markdown(view: RealView) -> str:
             "",
             "**Limits**",
             *(f"- {s}" for s in LIMITS),
+        )
+    )
+
+
+COMPARE_ROWS = (
+    ("Merged PRs", "merged_prs", "{:,}"),
+    ("Active engineers", "engineers", "{:,}"),
+    ("PRs / engineer / week", "prs_per_engineer_week", "{:.2f}"),
+    ("AI-assisted share", "ai_assisted_share", "{:.0%}"),
+    ("Revert rate (change failure proxy)", "change_failure_rate", "{:.1%}"),
+    ("Median cycle time (h)", "median_cycle_time_hours", "{:.1f}"),
+    ("Median time to first human review (h)", "median_review_latency_hours", "{:.1f}"),
+    ("Median PR size (lines)", "median_pr_size_lines", "{:.0f}"),
+)
+
+
+def compare_cell(view: RealView, field: str, fmt: str) -> str:
+    """ "baseline → current (change)", plus the change against the reference window if any."""
+    before, now = getattr(view.before, field), getattr(view.after, field)
+    ref = view.reference
+    vs_ref = f"; {change(getattr(ref.card, field), now, fmt)} vs {ref.label}" if ref else ""
+    return f"{fmt.format(before)} → {fmt.format(now)} ({change(before, now, fmt)}{vs_ref})"
+
+
+def compare_header(view: RealView) -> tuple[str, str, str]:
+    """Windows, what the baseline counts, and the Goodhart guards (current vs baseline)."""
+    ref = view.reference
+    windows = f"{view.before_label} → {view.after_label}" + (
+        f" (reference {ref.label})" if ref else ""
+    )
+    guards = "; ".join(view.signals) or "none triggered"
+    return windows, " + ".join(view.baseline.repos), guards
+
+
+def compare_markdown(views: Sequence[RealView]) -> str:
+    """The headline of each repository side by side: one column per repository."""
+    cols = len(views)
+    header = tuple(zip(*map(compare_header, views), strict=True)) if views else ((), (), ())
+
+    def line(label: str, cells: Sequence[str]) -> str:
+        return f"| {label} | " + " | ".join(cells) + " |"
+
+    return "\n".join(
+        (
+            "## Real data across repositories",
+            "",
+            "Each cell is baseline → current (change; change vs the pre-AI reference). Rates "
+            "change in percentage points, everything else relatively.",
+            "",
+            line("Metric", [f"[{v.snapshot.repo}]({v.snapshot.url})" for v in views]),
+            "|---|" + "---|" * cols,
+            line("Windows", header[0]),
+            line("Baseline counts", header[1]),
+            *(
+                line(label, [compare_cell(v, f, fmt) for v in views])
+                for label, f, fmt in COMPARE_ROWS
+            ),
+            line("Goodhart guards", header[2]),
+            line("Token cost per merged PR", ["not observable"] * cols),
         )
     )

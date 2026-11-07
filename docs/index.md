@@ -21,28 +21,48 @@ flowchart LR
     M[Routing & token economics] -.funds.-> A & R & D
 ```
 
-## On real data: microsoft/vscode
+## On real data: microsoft/vscode and dotnet/runtime
 
-The same metrics engine, run on **10,670 real merged pull requests** from
-[microsoft/vscode](https://github.com/microsoft/vscode). The headline compares **Q3 2026 with
-Q3 2025**, the same quarter a year earlier, so seasonality is controlled for. The Q3 2025
-baseline counts vscode **plus** [microsoft/vscode-copilot-chat](https://github.com/microsoft/vscode-copilot-chat),
-whose code moved into vscode in 2026, so both windows cover the same code.
+The same metrics engine, run on two famous public repositories with the same windows and
+rules. The headline compares **Q3 2026 with Q3 2025**, the same quarter a year earlier, so
+seasonality is controlled for; Q1 2025 is the pre-AI reference.
 
-| Q3 2025 → Q3 2026 | Result |
-|---|---|
-| Merged PRs | 3,216 → 4,742 (**+47%**) |
-| PRs / engineer / week | 1.56 → 1.96 (**+26%**), only **+9%** vs the pre-AI Q1 2025 reference (1.80) |
-| AI-assisted share | **5% → 66%** of merged PRs (0% in Q1 2025) |
-| Revert rate (change-failure proxy) | **0.5% → 0.7%**, flat within noise |
-| Review | Median PR size 20 → 121 lines, time to first human review 0.4 h → 1.2 h |
+| Q3 2025 → Q3 2026 | [microsoft/vscode](https://github.com/microsoft/vscode) | [dotnet/runtime](https://github.com/dotnet/runtime) |
+|---|---|---|
+| Merged PRs | 3,216 → 4,735 (**+47%**) | 1,219 → 1,867 (**+53%**) |
+| PRs / engineer / week | 1.56 → 1.97 (**+26%**), only **+9%** vs Q1 2025 | 0.58 → 0.81 (**+41%**), **+71%** vs Q1 2025 |
+| AI-assisted share | **5% → 66%** of merged PRs | **10% → 71%** of merged PRs |
+| Revert rate (change-failure proxy) | **0.5% → 0.7%**, flat within noise | **0.8% → 0.3%**, too few to call |
+| Median PR size | 20 → 121 lines | 44 → 63 lines |
+| Goodhart guards | none fired | none fired |
 
-Review is the new bottleneck, and no Goodhart guard fired. Reverts are only a proxy,
-attribution is incomplete, open source is not an enterprise, and none of this is causal:
-method, heuristics and limits are in [06 · Real data](06-real-data.md).
-[Open the interactive real-data dashboard](dashboard-real.html).
+Compare directions, not levels: the codebases differ in language, contributors and review
+culture. Reverts are only a proxy, attribution is incomplete, open source is not an
+enterprise, and none of this is causal.
+
+### microsoft/vscode
+
+**10,670 real merged pull requests.** The Q3 2025 baseline counts vscode **plus**
+[microsoft/vscode-copilot-chat](https://github.com/microsoft/vscode-copilot-chat), whose code
+moved into vscode in 2026, so both windows cover the same code. Q3 2025 was vscode's weakest
+quarter per engineer (1.56 against 1.80 in Q1 2025), so quote both gains. AI help shows up
+mostly as Copilot co-author trailers, and review is the new bottleneck: time to first human
+review 0.4 h → 1.2 h. Method, heuristics and limits are in [06 · Real data](06-real-data.md).
+[Open the vscode dashboard](dashboard-real.html).
 
 [![Dashboard on real microsoft/vscode pull requests](dashboard-real.png)](dashboard-real.html)
+
+### dotnet/runtime
+
+**4,325 real merged pull requests** from a large C# and C++ codebase with a strict review
+culture. No repository moved in between the windows, so the baseline is dotnet/runtime alone.
+The Copilot coding agent authors 13% of merged PRs (against about 4% on vscode), each
+credited to the human assignee. The per-engineer gain comes with nearly flat headcount, and
+review held its shape. Consolidation check, results and the cross-repo reading are in
+[07 · A second repository](07-dotnet-runtime.md).
+[Open the dotnet/runtime dashboard](dashboard-real-dotnet-runtime.html).
+
+[![Dashboard on real dotnet/runtime pull requests](dashboard-real-dotnet-runtime.png)](dashboard-real-dotnet-runtime.html)
 
 ## The target state, on synthetic data
 
@@ -59,6 +79,7 @@ cost, evals and routing. Every module's output is in [the demo output](demo-outp
 | 04 | [Operating model](04-operating-model.md) | Turning borrowed, part-time contributors into a dedicated team, and the first 90 days |
 | 05 | [Build vs partner](05-build-vs-partner.md) | Two-stage make / co-build / buy engine with priced lock-in, win probability and flip points |
 | 06 | [Real data](06-real-data.md) | The same metrics on 10,670 PRs from microsoft/vscode: method, heuristics, results and limits |
+| 07 | [A second repository](07-dotnet-runtime.md) | The same metrics on 4,325 PRs from dotnet/runtime, and both repositories side by side |
 
 ### Decision records
 
