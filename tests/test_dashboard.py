@@ -209,4 +209,4 @@ def test_cli_dashboard_writes_html(tmp_path, capsys):
     first = out.read_text(encoding="utf-8")
     main(["dashboard", "--out", str(out)])
     assert out.read_text(encoding="utf-8") == first
-    assert "AI-native developer experience" in first
+    assert "AI-Native Productivity Meter" in first

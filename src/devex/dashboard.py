@@ -688,8 +688,9 @@ def render(data: DashboardData) -> str:
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        f"<title>AI-native DevEx dashboard</title><style>{CSS}</style></head><body><main>"
-        "<header><div><h1>AI-native developer experience</h1>"
+        "<title>AI-Native Productivity Meter dashboard</title>"
+        f"<style>{CSS}</style></head><body><main>"
+        "<header><div><h1>AI-Native Productivity Meter</h1>"
         '<p class="sub">Throughput, quality and cost of an AI platform rollout, '
         "computed by the <code>devex</code> reference implementation.</p></div>"
         '<div class="banner">Synthetic / illustrative data</div></header>'

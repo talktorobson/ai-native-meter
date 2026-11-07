@@ -1,6 +1,6 @@
 # 02 · Metrics: one north star, four guardrails, zero vanity
 
-Implemented in [`src/devex/metrics.py`](https://github.com/talktorobson/ai-native-devex/blob/main/src/devex/metrics.py).
+Implemented in [`src/devex/metrics.py`](https://github.com/talktorobson/ai-native-meter/blob/main/src/devex/metrics.py).
 
 ## North star
 

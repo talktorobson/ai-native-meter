@@ -302,9 +302,9 @@ def render(view: real.RealView) -> str:
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        f"<title>AI-native DevEx on real data: {repo}</title>"
+        f"<title>AI-Native Productivity Meter on real data: {repo}</title>"
         f"<style>{CSS}{EXTRA_CSS}</style></head><body><main>"
-        f"<header><div><h1>AI-native DevEx on real data: {repo}</h1>"
+        f"<header><div><h1>AI-Native Productivity Meter on real data: {repo}</h1>"
         '<p class="sub">The same <code>devex</code> metrics engine, run on merged pull requests '
         f'of <a href="{url}">{url}</a>.</p>{facts}</div>'
         '<div class="banner real">Real public data</div></header>'

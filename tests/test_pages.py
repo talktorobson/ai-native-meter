@@ -90,7 +90,7 @@ def test_site_config_and_mermaid_wiring():
     layout = (DOCS / "_layouts" / "default.html").read_text()
     include = (DOCS / "_includes" / "mermaid.html").read_text()
 
-    assert "baseurl: /ai-native-devex" in config
+    assert "baseurl: /ai-native-meter" in config
     assert "- jekyll-relative-links" in config
     assert re.search(r"^theme: \S+", config, re.MULTILINE)
     assert "{% include mermaid.html %}" in layout

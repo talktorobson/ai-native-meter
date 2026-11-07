@@ -100,7 +100,7 @@ devex dashboard --source real    # docs/dashboard-real.html
 devex report --source real --baseline 2025-01-01   # Q1 2025 as baseline instead
 ```
 
-1. **Fetch** ([`github_source.py`](https://github.com/talktorobson/ai-native-devex/blob/main/src/devex/github_source.py)). `gh api graphql` pages
+1. **Fetch** ([`github_source.py`](https://github.com/talktorobson/ai-native-meter/blob/main/src/devex/github_source.py)). `gh api graphql` pages
    through `is:pr is:merged base:main` search results in 7-day slices (the search API caps
    at 1,000 results per query). Each PR brings its author, assignees, merger, labels, body,
    reviews, size, the paths of up to 100 changed files and its last 30 commit messages. A
@@ -109,7 +109,7 @@ devex report --source real --baseline 2025-01-01   # Q1 2025 as baseline instead
    *predecessor* of the snapshot's repository for one window, and `--moved-to` records where
    its code went.
 2. **Snapshot.** Each PR is reduced to a compact record together with the *evidence* behind every
-   classification, and written to [`data/real/microsoft-vscode.json`](https://github.com/talktorobson/ai-native-devex/blob/main/data/real/microsoft-vscode.json)
+   classification, and written to [`data/real/microsoft-vscode.json`](https://github.com/talktorobson/ai-native-meter/blob/main/data/real/microsoft-vscode.json)
    (10,670 PRs, ~2.3 MB, one PR per line; predecessor records carry a `repo` field). Tests, CI
    and the dashboard read only the snapshot: nothing needs the network or a token after the
    fetch.

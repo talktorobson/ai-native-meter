@@ -1,5 +1,5 @@
 ---
-title: AI-native developer experience
+title: AI-Native Productivity Meter
 ---
 
 Every CTO wants AI to multiply engineering throughput; almost nobody has done it at scale.
@@ -71,4 +71,4 @@ cost, evals and routing. Every module's output is in [the demo output](demo-outp
 
 The reference implementation is pure Python 3.11+ with no runtime dependencies and runs
 offline. Source, tests and instructions are on
-[GitHub: talktorobson/ai-native-devex](https://github.com/talktorobson/ai-native-devex).
+[GitHub: talktorobson/ai-native-meter](https://github.com/talktorobson/ai-native-meter).
