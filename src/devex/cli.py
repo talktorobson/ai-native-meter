@@ -1,4 +1,5 @@
-"""Command line entry point: ``devex <command>``. Every command prints Markdown."""
+"""Command line entry point: ``devex <command>``. Commands print Markdown; ``dashboard``
+writes a self-contained HTML file."""
 
 from __future__ import annotations
 
@@ -7,7 +8,15 @@ from collections.abc import Callable, Sequence
 from datetime import datetime
 from pathlib import Path
 
-from devex import context, metrics, review_eval, routing, synthetic, vendor_scorecard
+from devex import (
+    context,
+    dashboard,
+    metrics,
+    review_eval,
+    routing,
+    synthetic,
+    vendor_scorecard,
+)
 
 DATA = Path(__file__).resolve().parents[2] / "data"
 ENGINEERS = 120
@@ -17,21 +26,39 @@ def _pct(value: float) -> str:
     return f"{value:+.0%}"
 
 
-def cmd_report(_: argparse.Namespace) -> str:
-    before_prs = synthetic.generate(
+def _rollout() -> tuple[tuple[metrics.PullRequest, ...], tuple[metrics.PullRequest, ...]]:
+    """Synthetic PR history: baseline in Q1, platform rollout in Q2."""
+    before = synthetic.generate(
         seed=1,
         engineers=ENGINEERS,
         window=synthetic.QUARTER_1,
         profile=synthetic.BASELINE,
         label="q1",
     )
-    after_prs = synthetic.generate(
+    after = synthetic.generate(
         seed=2,
         engineers=ENGINEERS,
         window=synthetic.QUARTER_2,
         profile=synthetic.WITH_PLATFORM,
         label="q2",
     )
+    return before, after
+
+
+def _review_reports(
+    cases: Sequence[review_eval.ReviewCase],
+) -> tuple[review_eval.EvalReport, ...]:
+    return review_eval.compare(
+        {
+            "rule-baseline": (review_eval.rule_reviewer, 0.0),
+            "keyword-noisy": (review_eval.keyword_reviewer, 0.0),
+        },
+        cases,
+    )
+
+
+def cmd_report(_: argparse.Namespace) -> str:
+    before_prs, after_prs = _rollout()
     before = metrics.scorecard(before_prs, ENGINEERS, synthetic.QUARTER_1)
     after = metrics.scorecard(after_prs, ENGINEERS, synthetic.QUARTER_2)
     rows = (
@@ -70,13 +97,7 @@ def cmd_report(_: argparse.Namespace) -> str:
 
 def cmd_eval_review(args: argparse.Namespace) -> str:
     cases = review_eval.load_cases(args.cases)
-    reports = review_eval.compare(
-        {
-            "rule-baseline": (review_eval.rule_reviewer, 0.0),
-            "keyword-noisy": (review_eval.keyword_reviewer, 0.0),
-        },
-        cases,
-    )
+    reports = _review_reports(cases)
     return "\n".join(
         (
             f"## Code-review eval ({len(cases)} seeded cases)",
@@ -165,6 +186,39 @@ def cmd_demo(args: argparse.Namespace) -> str:
     return "\n\n".join(step(args) for step in steps)
 
 
+def dashboard_data(args: argparse.Namespace) -> dashboard.DashboardData:
+    before_prs, after_prs = _rollout()
+    q1, q2 = synthetic.QUARTER_1, synthetic.QUARTER_2
+    before = metrics.scorecard(before_prs, ENGINEERS, q1)
+    after = metrics.scorecard(after_prs, ENGINEERS, q2)
+    cases = review_eval.load_cases(args.cases)
+    weights, candidates = vendor_scorecard.load_candidates(args.candidates)
+    return dashboard.DashboardData(
+        engineers=ENGINEERS,
+        baseline_label="Q1 2026",
+        platform_label="Q2 2026",
+        before=before,
+        after=after,
+        weekly_before=dashboard.weekly_scorecards(before_prs, ENGINEERS, q1),
+        weekly_after=dashboard.weekly_scorecards(after_prs, ENGINEERS, q2),
+        signals=metrics.gaming_signals(before, after),
+        review=_review_reports(cases),
+        review_cases=len(cases),
+        routing=routing.simulate(
+            routing.load_requests(args.requests), min_quality=args.min_quality
+        ),
+        min_quality=args.min_quality,
+        vendor=vendor_scorecard.decide(candidates, weights),
+    )
+
+
+def cmd_dashboard(args: argparse.Namespace) -> str:
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(dashboard.render(dashboard_data(args)), encoding="utf-8")
+    return f"Dashboard written to {out}"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="devex", description=__doc__)
     parser.add_argument("--cases", default=str(DATA / "review_benchmark.json"))
@@ -175,6 +229,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--budget", type=int, default=400)
     parser.add_argument("--now", default="2026-11-01T00:00:00")
     parser.add_argument("--min-quality", type=float, default=0.9)
+    parser.add_argument("--out", default="docs/dashboard.html", help="dashboard output path")
     commands = {
         "report": cmd_report,
         "eval-review": cmd_eval_review,
@@ -182,6 +237,7 @@ def build_parser() -> argparse.ArgumentParser:
         "route": cmd_route,
         "decide": cmd_decide,
         "demo": cmd_demo,
+        "dashboard": cmd_dashboard,
     }
     parser.add_argument("command", choices=commands)
     parser.set_defaults(commands=commands)
