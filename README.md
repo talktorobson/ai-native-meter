@@ -92,6 +92,23 @@ dotnet/runtime alone.
   rose year over year but are flat against Q1 2025. Agent PRs take longest to land (median
   61 h). No Goodhart guard fired.
 
+### Engineers, under pseudonyms
+
+Take the engineers who merged in both Q3 2025 and Q3 2026 and split them by AI adoption
+(at least half their Q3 2026 PRs AI-assisted):
+
+- **On dotnet/runtime, the typical adopter's output rose 89%, against 0% for the others.**
+  The 90% interval of the gap is +27% to +200%.
+- **On vscode, the median adopter gained no more than the others** (gap -19%, interval
+  spanning zero), but pooled adopter output rose 95%. The gain sits with a few prolific
+  engineers, and the top 10% merge 71% of PRs.
+
+Each dashboard ranks engineers by KPI with per-engineer guardrails (small PRs, reverts above
+the repository's, light review). Names are stable pseudonyms, because individual numbers are
+for distribution and coaching, not leaderboards
+([ADR-0005](docs/adr/0005-individual-metrics-are-not-leaderboards.md)). Details are in
+[08 · Engineers](docs/08-engineers.md).
+
 ### And the target state, on synthetic data
 
 [![Dashboard of the KPIs, synthetic data](docs/dashboard.png)](docs/dashboard.html)
@@ -112,7 +129,8 @@ what public data cannot show: token cost, evals and routing. Open
 | 05 | [Build vs partner](docs/05-build-vs-partner.md) | Two-stage make / co-build / buy engine: motion fit, evidence-discounted scoring, priced lock-in, win probability and flip points |
 | 06 | [Real data](docs/06-real-data.md) | The same metrics on 10,670 PRs from microsoft/vscode and its absorbed vscode-copilot-chat across three quarters: method, AI-attribution heuristics, repository consolidation, results and limits |
 | 07 | [A second repository](docs/07-dotnet-runtime.md) | The same metrics on 4,325 PRs from dotnet/runtime, a consolidation check, and both repositories side by side: what differs and why |
-| ADR | [Decisions](docs/adr) | Context before agents · precision before recall · route by evals · decisions as data |
+| 08 | [Engineers](docs/08-engineers.md) | Per-engineer KPIs under pseudonyms: output distribution, guardrail flags, and AI adopters vs others a year apart |
+| ADR | [Decisions](docs/adr) | Context before agents · precision before recall · route by evals · decisions as data · no leaderboards |
 
 ## Run the reference implementation
 
@@ -121,7 +139,7 @@ Pure Python 3.11+, no runtime dependencies.
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-pytest -q          # 257 tests, offline
+pytest -q          # 283 tests, offline
 devex demo         # every module, printed as Markdown
 devex dashboard    # the same numbers as a static HTML page: docs/dashboard.html
 open docs/dashboard.html   # macOS; use xdg-open on Linux
@@ -129,6 +147,7 @@ open docs/dashboard.html   # macOS; use xdg-open on Linux
 devex report --source real                       # real microsoft/vscode PRs, from the committed snapshot
 devex report --source real --repo dotnet/runtime # the second example
 devex compare                                    # both repositories side by side
+devex engineers --repo dotnet/runtime            # per-engineer KPIs, ranks and guardrails, pseudonymised
 devex dashboard --source real                    # docs/dashboard-real*.html, one page per repository
 ```
 
@@ -139,6 +158,7 @@ devex dashboard --source real                    # docs/dashboard-real*.html, on
 | `devex fetch --repo OWNER/NAME --since DATE --until DATE [--into OWNER/NAME --moved-to PATH]` | [`github_source.py`](src/devex/github_source.py) | Real merged PRs from a public GitHub repo via `gh api graphql`, mapped to the same model and saved as an offline snapshot in `data/real/`; `--into` adds a predecessor repository whose code moved into the snapshot's repo, so that window's baseline is like for like |
 | `devex report --source real [--repo OWNER/NAME ...]`, `devex dashboard --source real` | [`real.py`](src/devex/real.py), [`dashboard_real.py`](src/devex/dashboard_real.py) | The scorecard, AI cohorts, attribution evidence and Goodhart guards on a snapshot (microsoft/vscode by default; repeat `--repo` for several); one dashboard page per committed snapshot, `docs/dashboard-real.html` for vscode and `docs/dashboard-real-OWNER-NAME.html` for the others. Current defaults to the latest window, baseline to the same quarter a year earlier; override with `--baseline DATE` / `--current DATE` |
 | `devex compare [--repo OWNER/NAME ...]` | [`real.py`](src/devex/real.py) | The real-data headline of every committed snapshot (or the ones named) side by side |
+| `devex engineers [--repo OWNER/NAME ...] [--window current\|baseline\|reference] [--sort KPI] [--top N] [--min-prs N] [--logins]` | [`engineers.py`](src/devex/engineers.py), [`dashboard_engineers.py`](src/devex/dashboard_engineers.py) | Per-engineer KPIs with a rank each, guardrail flags, output percentiles and the paired AI-adopter comparison, under stable pseudonyms; `--logins` reveals real logins for local use only |
 | `devex eval-review` | [`review_eval.py`](src/devex/review_eval.py) | Any review agent scored on a seeded-defect fintech benchmark |
 | `devex context` | [`context.py`](src/devex/context.py) | Curation-aware graph retrieval under a token budget, plus curation lint |
 | `devex route` | [`routing.py`](src/devex/routing.py) | Eval-driven model routing: savings and quality trade-off |
@@ -166,7 +186,7 @@ Highlights from [`docs/demo-output.md`](docs/demo-output.md) (synthetic data):
 | AI developer-tooling strategy at scale | [The case](docs/01-the-case.md), [architecture](docs/03-architecture.md) |
 | Evaluation rigour replacing subjective judgment | `review_eval.py`, `routing.py`, [ADR-0002](docs/adr/0002-precision-over-recall-in-review.md), [ADR-0003](docs/adr/0003-route-by-evals.md) |
 | Context and retrieval infrastructure | `context.py`, [ADR-0001](docs/adr/0001-context-before-agents.md) |
-| Productivity measurement that resists gaming | `metrics.py`, [metrics](docs/02-metrics.md) |
+| Productivity measurement that resists gaming | `metrics.py`, `engineers.py`, [metrics](docs/02-metrics.md), [ADR-0005](docs/adr/0005-individual-metrics-are-not-leaderboards.md) |
 | Token-cost management | Cost per merged PR guardrail, routing simulator |
 | Vendor partnerships and lock-in management | `motion_fit.py`, `vendor_scorecard.py`, `robustness.py`, `decision.py`, [build vs partner](docs/05-build-vs-partner.md), [ADR-0004](docs/adr/0004-decisions-as-data.md) |
 | Building teams from fragmented resourcing | [Operating model](docs/04-operating-model.md) |
@@ -184,6 +204,10 @@ Highlights from [`docs/demo-output.md`](docs/demo-output.md) (synthetic data):
   vscode-copilot-chat, and a vscode-only comparison nearly doubled the apparent gain until the
   baseline counted both. Two repositories are better than one, but still not a sample: see
   [06 · Real data](docs/06-real-data.md) and [07 · A second repository](docs/07-dotnet-runtime.md).
+- The engineer view is observational. AI adopters chose to adopt, groups are 10 to 51 people,
+  delegating to an agent raises an engineer's PR count by design, and PRs per week ignores
+  review, design and mentoring work. Pseudonyms are a convention, not anonymity: see
+  [08 · Engineers](docs/08-engineers.md).
 - The retrieval scorer is lexical plus graph traversal. A production system adds
   embeddings and a learned re-ranker; the contract (provenance, curation weighting,
   budgets) is what this code is meant to show.

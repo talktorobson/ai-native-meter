@@ -54,8 +54,9 @@ real-data dashboard ends with the cross-repo table and links to the other one.
   servicing fixes there would double-count work, so they are excluded, as for vscode.
 - **Bots.** GitHub Apps are bots by account type; here `dotnet-maestro` (dependency flow),
   `github-actions` and `dependabot` author merged PRs. Two automation *user* accounts were
-  added to `AUTOMATION_LOGINS`: `dotnet-bot` and `dotnet-renovate-bot`. Excluded from throughput: 76 PRs in Q1 2025, 52 in Q3 2025 and 60
-  in Q3 2026. `jakobbotsch` is a human maintainer, not a bot, and is counted.
+  added to `AUTOMATION_LOGINS`: `dotnet-bot` and `dotnet-renovate-bot`. Excluded from
+  throughput: 76 PRs in Q1 2025, 52 in Q3 2025 and 60 in Q3 2026. The list is explicit rather
+  than a pattern, so a human maintainer whose login happens to contain "bot" is still counted.
 - **Agent PRs credit a human.** All 278 merged `copilot-swe-agent` PRs (44 in Q3 2025, 234 in
   Q3 2026) are credited to a human assignee: 47 distinct engineers, none to the agent itself.
   In a sample of 40 Q3 2026 agent PRs, every one had a human assignee and in 38 the person

@@ -37,7 +37,7 @@ def _headline(page: Path) -> str:
     return text[start : text.index("\n## ", start + 1)]
 
 
-CHAPTERS = ("06-real-data.md", "07-dotnet-runtime.md")
+CHAPTERS = ("06-real-data.md", "07-dotnet-runtime.md", "08-engineers.md")
 DASHBOARDS = ("dashboard.html", "dashboard-real.html", "dashboard-real-dotnet-runtime.html")
 
 

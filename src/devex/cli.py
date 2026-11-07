@@ -1,7 +1,8 @@
 """Command line entry point: ``devex <command>``. Commands print Markdown; ``dashboard``
 writes a self-contained HTML file; ``fetch`` snapshots real PRs from a public GitHub repo.
 ``--source real`` runs ``report`` and ``dashboard`` on committed snapshots instead of synthetic
-data; ``compare`` puts the real-data headlines of several repositories side by side."""
+data; ``compare`` puts the real-data headlines of several repositories side by side;
+``engineers`` ranks engineers by KPI on a snapshot, under pseudonyms unless ``--logins``."""
 
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from devex import (
     dashboard,
     dashboard_real,
     decision,
+    engineers,
     github_source,
     metrics,
     motion_fit,
@@ -109,6 +111,23 @@ def _real_views(args: argparse.Namespace, *, every: bool) -> tuple[real.RealView
 
 def cmd_compare(args: argparse.Namespace) -> str:
     return real.compare_markdown(_real_views(args, every=True))
+
+
+def cmd_engineers(args: argparse.Namespace) -> str:
+    try:
+        return "\n\n".join(
+            engineers.view_markdown(
+                view,
+                role=args.window,
+                sort=args.sort,
+                top=args.top,
+                min_prs=args.min_prs,
+                reveal=args.logins,
+            )
+            for view in _real_views(args, every=False)
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
 
 
 def cmd_fetch(args: argparse.Namespace) -> str:
@@ -430,6 +449,31 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--current", help="real: start date of the current window (default: the latest)"
     )
+    parser.add_argument(
+        "--window",
+        choices=engineers.ROLES,
+        default="current",
+        help="engineers: which window to rank (default current)",
+    )
+    parser.add_argument(
+        "--sort",
+        choices=tuple(k.key for k in engineers.KPIS),
+        default="prs_per_week",
+        help="engineers: KPI to sort on (default prs_per_week)",
+    )
+    parser.add_argument("--top", type=int, default=15, help="engineers: rows to show")
+    parser.add_argument(
+        "--min-prs",
+        type=int,
+        default=5,
+        help="engineers: merged PRs needed to be ranked and paired (default 5)",
+    )
+    parser.add_argument(
+        "--logins",
+        action="store_true",
+        help="engineers: show real GitHub logins instead of pseudonyms (local use only; "
+        "never in published artifacts)",
+    )
     commands = {
         "report": cmd_report,
         "eval-review": cmd_eval_review,
@@ -440,6 +484,7 @@ def build_parser() -> argparse.ArgumentParser:
         "dashboard": cmd_dashboard,
         "fetch": cmd_fetch,
         "compare": cmd_compare,
+        "engineers": cmd_engineers,
     }
     parser.add_argument("command", choices=commands)
     parser.set_defaults(commands=commands)

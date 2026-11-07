@@ -64,6 +64,22 @@ review held its shape. Consolidation check, results and the cross-repo reading a
 
 [![Dashboard on real dotnet/runtime pull requests](dashboard-real-dotnet-runtime.png)](dashboard-real-dotnet-runtime.html)
 
+### Engineers, under pseudonyms
+
+Take the engineers who merged in both Q3 2025 and Q3 2026. On dotnet/runtime, those with
+at least half their PRs AI-assisted went from 0.61 → 1.07 PRs per week at the median, while
+the others stayed at 0.38. The gap in median change is +89%, and its 90% interval excludes
+zero.
+
+On vscode the typical adopter gained no more than the others: the gap is -19% and its
+interval spans zero. Pooled adopter output still rose 95%, so the gain sits with a few
+prolific engineers; the top 10% merge 71% of PRs.
+
+Each dashboard has a sortable engineer table with guardrail flags. Names are pseudonyms,
+because individual numbers are for distribution and coaching, not leaderboards
+([ADR-0005](adr/0005-individual-metrics-are-not-leaderboards.md)). See
+[08 · Engineers](08-engineers.md).
+
 ## The target state, on synthetic data
 
 [The KPI dashboard on synthetic data](dashboard.html) shows what public data cannot: token
@@ -80,6 +96,7 @@ cost, evals and routing. Every module's output is in [the demo output](demo-outp
 | 05 | [Build vs partner](05-build-vs-partner.md) | Two-stage make / co-build / buy engine with priced lock-in, win probability and flip points |
 | 06 | [Real data](06-real-data.md) | The same metrics on 10,670 PRs from microsoft/vscode: method, heuristics, results and limits |
 | 07 | [A second repository](07-dotnet-runtime.md) | The same metrics on 4,325 PRs from dotnet/runtime, and both repositories side by side |
+| 08 | [Engineers](08-engineers.md) | Per-engineer KPIs under pseudonyms: distribution, guardrails, and AI adopters vs others a year apart |
 
 ### Decision records
 
@@ -87,6 +104,7 @@ cost, evals and routing. Every module's output is in [the demo output](demo-outp
 - [ADR-0002 · Optimise AI code review for precision before recall](adr/0002-precision-over-recall-in-review.md)
 - [ADR-0003 · Route models by internal eval results, not by vendor benchmarks](adr/0003-route-by-evals.md)
 - [ADR-0004 · Make build-vs-partner decisions as data, not as debate](adr/0004-decisions-as-data.md)
+- [ADR-0005 · Individual metrics are for distribution and coaching, not leaderboards](adr/0005-individual-metrics-are-not-leaderboards.md)
 
 ## Run it
 
