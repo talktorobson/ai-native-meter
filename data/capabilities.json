@@ -1,0 +1,35 @@
+{
+  "_note": "Synthetic, illustrative profiles. Attributes are 0-1 judgements agreed in a sourcing review, not measurements.",
+  "capabilities": [
+    {
+      "name": "Context layer",
+      "note": "Code graph, ADRs, incidents and tickets served to every agent",
+      "attributes": {"differentiation": 0.9, "proprietary_context": 1.0, "market_maturity": 0.2, "market_velocity": 0.4, "data_sensitivity": 0.8, "internal_capacity": 0.7, "time_pressure": 0.5}
+    },
+    {
+      "name": "Eval harness and benchmarks",
+      "note": "Seeded-defect sets, pass-rate evals per task class",
+      "attributes": {"differentiation": 0.8, "proprietary_context": 0.9, "market_maturity": 0.4, "market_velocity": 0.3, "data_sensitivity": 0.6, "internal_capacity": 0.6, "time_pressure": 0.4}
+    },
+    {
+      "name": "Agentic code review",
+      "note": "Review agent that needs our conventions and incident history",
+      "attributes": {"differentiation": 0.6, "proprietary_context": 0.75, "market_maturity": 0.5, "market_velocity": 0.8, "data_sensitivity": 0.6, "internal_capacity": 0.5, "time_pressure": 0.6}
+    },
+    {
+      "name": "AI SRE diagnosis",
+      "note": "Incident triage over our telemetry and runbooks",
+      "attributes": {"differentiation": 0.55, "proprietary_context": 0.8, "market_maturity": 0.3, "market_velocity": 0.7, "data_sensitivity": 0.7, "internal_capacity": 0.35, "time_pressure": 0.5}
+    },
+    {
+      "name": "IDE coding assistant",
+      "note": "Completion and chat in the editor",
+      "attributes": {"differentiation": 0.15, "proprietary_context": 0.3, "market_maturity": 0.9, "market_velocity": 0.95, "data_sensitivity": 0.4, "internal_capacity": 0.3, "time_pressure": 0.8}
+    },
+    {
+      "name": "Frontier model inference",
+      "note": "Hosted LLMs behind the gateway",
+      "attributes": {"differentiation": 0.1, "proprietary_context": 0.1, "market_maturity": 0.8, "market_velocity": 1.0, "data_sensitivity": 0.5, "internal_capacity": 0.1, "time_pressure": 0.7}
+    }
+  ]
+}

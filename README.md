@@ -37,8 +37,8 @@ flowchart LR
 | 02 | [Metrics](docs/02-metrics.md) | One north star, four guardrails, automatic Goodhart guards |
 | 03 | [Architecture](docs/03-architecture.md) | Context layer, agentic coding, agentic review, AI SRE, routing, platform |
 | 04 | [Operating model](docs/04-operating-model.md) | Turning borrowed, part-time contributors into a dedicated team, and the first 90 days |
-| 05 | [Build vs partner](docs/05-build-vs-partner.md) | Hard gates, weighted criteria and lock-in risk instead of demo-driven choices |
-| ADR | [Decisions](docs/adr) | Context before agents · precision before recall · route by evals |
+| 05 | [Build vs partner](docs/05-build-vs-partner.md) | Two-stage make / co-build / buy engine: motion fit, evidence-discounted scoring, priced lock-in, win probability and flip points |
+| ADR | [Decisions](docs/adr) | Context before agents · precision before recall · route by evals · decisions as data |
 
 ## Run the reference implementation
 
@@ -47,7 +47,7 @@ Pure Python 3.11+, no runtime dependencies.
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-pytest -q          # 69 tests
+pytest -q          # 116 tests
 devex demo         # every module, printed as Markdown
 devex dashboard    # the same numbers as a static HTML page: docs/dashboard.html
 open docs/dashboard.html   # macOS; use xdg-open on Linux
@@ -55,12 +55,12 @@ open docs/dashboard.html   # macOS; use xdg-open on Linux
 
 | Command | Module | What it shows |
 |---|---|---|
-| `devex dashboard [--out PATH]` | [`dashboard.py`](src/devex/dashboard.py) | Self-contained HTML (inline CSS and SVG, no external assets) with KPI tiles, weekly trends, guards, evals, routing and the vendor verdict |
+| `devex dashboard [--out PATH]` | [`dashboard.py`](src/devex/dashboard.py) | Self-contained HTML (inline CSS and SVG, no external assets) with KPI tiles, weekly trends, guards, evals, routing, the motion-fit map, contribution breakdown and win probabilities |
 | `devex report` | [`metrics.py`](src/devex/metrics.py) | Baseline vs rollout scorecard with Goodhart guards |
 | `devex eval-review` | [`review_eval.py`](src/devex/review_eval.py) | Any review agent scored on a seeded-defect fintech benchmark |
 | `devex context` | [`context.py`](src/devex/context.py) | Curation-aware graph retrieval under a token budget, plus curation lint |
 | `devex route` | [`routing.py`](src/devex/routing.py) | Eval-driven model routing: savings and quality trade-off |
-| `devex decide` | [`vendor_scorecard.py`](src/devex/vendor_scorecard.py) | Build-vs-partner ranking with hard gates and lock-in risk |
+| `devex decide [--memo] [--weight NAME=VALUE]` | [`motion_fit.py`](src/devex/motion_fit.py), [`vendor_scorecard.py`](src/devex/vendor_scorecard.py), [`robustness.py`](src/devex/robustness.py), [`decision.py`](src/devex/decision.py) | Make / co-build / buy: motion fit per capability, evidence-discounted scores, P(win), flip points, and an ADR-style memo with `--memo` |
 
 Highlights from [`docs/demo-output.md`](docs/demo-output.md) (synthetic data):
 
@@ -72,8 +72,10 @@ Highlights from [`docs/demo-output.md`](docs/demo-output.md) (synthetic data):
 - Retrieval pulls the ticket, the incident and the governing ADR into context, and
   keeps the deprecated design doc out.
 - Eval-driven routing cuts cost **34%** and states the expected quality cost next to it.
-- The best-scoring vendor is disqualified by a data-residency gate; the top two
-  survivors are too close to call, so the verdict is a time-boxed bake-off.
+- Make / co-build / buy is decided in two stages: the context layer is a **build**, the
+  IDE assistant a **buy**, code review a **co-build**. For code review, the best raw
+  scorer is gated out, demo claims are discounted, and the co-build wins **82%** of
+  2,000 simulations, robust unless the review-quality weight rises above 0.54.
 
 ## What this demonstrates
 
@@ -84,7 +86,7 @@ Highlights from [`docs/demo-output.md`](docs/demo-output.md) (synthetic data):
 | Context and retrieval infrastructure | `context.py`, [ADR-0001](docs/adr/0001-context-before-agents.md) |
 | Productivity measurement that resists gaming | `metrics.py`, [metrics](docs/02-metrics.md) |
 | Token-cost management | Cost per merged PR guardrail, routing simulator |
-| Vendor partnerships and lock-in management | `vendor_scorecard.py`, [build vs partner](docs/05-build-vs-partner.md) |
+| Vendor partnerships and lock-in management | `motion_fit.py`, `vendor_scorecard.py`, `robustness.py`, `decision.py`, [build vs partner](docs/05-build-vs-partner.md), [ADR-0004](docs/adr/0004-decisions-as-data.md) |
 | Building teams from fragmented resourcing | [Operating model](docs/04-operating-model.md) |
 | Regulated, risk-aware delivery | Fintech defect categories, sandbox defaults, staged AI SRE autonomy |
 

@@ -1,39 +1,72 @@
 {
+  "_note": "Synthetic, illustrative data. Every vendor is fictional; prices and scores illustrate the method, not a market.",
+  "capability": "Agentic code review",
   "weights": {
-    "review_quality_f05": 0.35,
-    "integration_effort": 0.15,
+    "review_quality": 0.35,
+    "tco": 0.25,
     "time_to_value": 0.15,
-    "cost_at_scale": 0.20,
-    "operability": 0.15
+    "operability": 0.10,
+    "lock_in": 0.15
+  },
+  "anchors": {
+    "tco_usd": [1500000, 5000000],
+    "time_to_value_weeks": [4, 40]
+  },
+  "scale": {
+    "engineers": 3500,
+    "prs_per_engineer_week": 2.5,
+    "years": 3,
+    "engineer_week_usd": 4000,
+    "fte_year_usd": 200000
+  },
+  "policy": {
+    "clear_win_probability": 0.7,
+    "contender_probability": 0.15,
+    "min_score": 0.5,
+    "samples": 2000,
+    "seed": 7,
+    "weight_concentration": 50
   },
   "candidates": [
     {
-      "name": "Vendor A review bot",
-      "motion": "buy",
-      "scores": {"review_quality_f05": 0.78, "integration_effort": 0.9, "time_to_value": 0.95, "cost_at_scale": 0.45, "operability": 0.6},
-      "gates": {"data_residency": true, "soc2": true, "no_training_on_customer_code": true},
-      "lock_in": {"data_export": true, "open_interfaces": false, "model_choice": false, "self_host_option": false, "exit_under_90_days": true}
-    },
-    {
       "name": "Vendor B co-build",
-      "motion": "partner",
-      "scores": {"review_quality_f05": 0.82, "integration_effort": 0.7, "time_to_value": 0.7, "cost_at_scale": 0.65, "operability": 0.75},
-      "gates": {"data_residency": true, "soc2": true, "no_training_on_customer_code": true},
-      "lock_in": {"data_export": true, "open_interfaces": true, "model_choice": true, "self_host_option": false, "exit_under_90_days": true}
+      "motion": "co-build",
+      "gates": {"data_residency": true, "soc2": true, "no_training_on_customer_code": true, "audit_logging": true},
+      "lock_in": {"data_export": true, "open_interfaces": true, "model_choice": true, "self_host_option": false, "exit_under_90_days": true},
+      "review_quality": {"f05": 0.86, "evidence": "pilot"},
+      "time_to_value": {"weeks": 12, "evidence": "pilot"},
+      "operability": {"score": 0.75, "evidence": "pilot"},
+      "costs": {"seat_usd_month": 8, "usd_per_m_tokens": 4, "tokens_m_per_pr": 0.06, "integration_weeks": 16, "run_usd_year": 60000, "in_house_fte": 1.5, "evidence": "contract"}
     },
     {
       "name": "In-house reviewer on context layer",
       "motion": "build",
-      "scores": {"review_quality_f05": 0.7, "integration_effort": 0.5, "time_to_value": 0.4, "cost_at_scale": 0.85, "operability": 0.8},
-      "gates": {"data_residency": true, "soc2": true, "no_training_on_customer_code": true},
-      "lock_in": {"data_export": true, "open_interfaces": true, "model_choice": true, "self_host_option": true, "exit_under_90_days": true}
+      "gates": {"data_residency": true, "soc2": true, "no_training_on_customer_code": true, "audit_logging": true},
+      "lock_in": {"data_export": true, "open_interfaces": true, "model_choice": true, "self_host_option": true, "exit_under_90_days": true},
+      "review_quality": {"reviewer": "rule-baseline", "evidence": "benchmark"},
+      "time_to_value": {"weeks": 30, "evidence": "demo"},
+      "operability": {"score": 0.8, "evidence": "pilot"},
+      "costs": {"usd_per_m_tokens": 3, "tokens_m_per_pr": 0.08, "integration_weeks": 24, "run_usd_year": 120000, "in_house_fte": 4, "evidence": "pilot"}
+    },
+    {
+      "name": "Vendor A review bot",
+      "motion": "buy",
+      "gates": {"data_residency": true, "soc2": true, "no_training_on_customer_code": true, "audit_logging": true},
+      "lock_in": {"data_export": true, "open_interfaces": false, "model_choice": false, "self_host_option": false, "exit_under_90_days": true},
+      "review_quality": {"f05": 0.80, "evidence": "demo"},
+      "time_to_value": {"weeks": 6, "evidence": "demo"},
+      "operability": {"score": 0.6, "evidence": "demo"},
+      "costs": {"seat_usd_month": 25, "integration_weeks": 6, "run_usd_year": 20000, "in_house_fte": 0.5, "evidence": "contract"}
     },
     {
       "name": "Vendor C SaaS",
       "motion": "buy",
-      "scores": {"review_quality_f05": 0.88, "integration_effort": 0.95, "time_to_value": 0.95, "cost_at_scale": 0.5, "operability": 0.6},
-      "gates": {"data_residency": false, "soc2": true, "no_training_on_customer_code": true},
-      "lock_in": {"data_export": false, "open_interfaces": false, "model_choice": false, "self_host_option": false, "exit_under_90_days": false}
+      "gates": {"data_residency": false, "soc2": true, "no_training_on_customer_code": true, "audit_logging": true},
+      "lock_in": {"data_export": false, "open_interfaces": false, "model_choice": false, "self_host_option": false, "exit_under_90_days": false},
+      "review_quality": {"f05": 0.93, "evidence": "demo"},
+      "time_to_value": {"weeks": 4, "evidence": "demo"},
+      "operability": {"score": 0.6, "evidence": "demo"},
+      "costs": {"seat_usd_month": 30, "integration_weeks": 4, "in_house_fte": 0.5, "evidence": "contract"}
     }
   ]
 }

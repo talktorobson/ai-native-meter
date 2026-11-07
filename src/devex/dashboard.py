@@ -1,7 +1,7 @@
 """Static, self-contained HTML dashboard: inline CSS and inline SVG, no external assets.
 
-Every number comes from the pure functions in ``metrics``, ``review_eval``, ``routing``
-and ``vendor_scorecard``; this module only lays them out. Output is deterministic for a
+Every number comes from the pure functions in ``metrics``, ``review_eval``, ``routing``,
+``motion_fit`` and ``decision``; this module only lays them out. Output is deterministic for a
 given input, so the generated file can be diffed and committed.
 """
 
@@ -14,22 +14,27 @@ from html import escape
 from math import floor, log10
 
 from devex import metrics
+from devex.decision import LABELS, Analysis
 from devex.metrics import PullRequest, Scorecard, Window
+from devex.motion_fit import MOTIONS, MotionFit
 from devex.review_eval import EvalReport
 from devex.routing import RoutingReport
-from devex.vendor_scorecard import Recommendation
+from devex.vendor_scorecard import CRITERIA, contributions
 
 __all__ = [
     "KPIS",
     "Bar",
     "DashboardData",
     "Kpi",
+    "Segment",
     "Series",
+    "Stack",
     "bar_chart",
     "kpi_tile",
     "line_chart",
     "nice_max",
     "render",
+    "stacked_bar_chart",
     "weekly_scorecards",
     "weekly_windows",
 ]
@@ -40,6 +45,9 @@ GOOD = "#15803d"
 BAD = "#b91c1c"
 NEUTRAL = "#64748b"
 SMALL, SMALL_LABEL = 360, 120
+CRITERION_COLORS = dict(
+    zip(CRITERIA, ("#2563eb", "#0d9488", "#f59e0b", "#7c3aed", "#db2777"), strict=True)
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +94,21 @@ class Bar:
 
 
 @dataclass(frozen=True, slots=True)
+class Segment:
+    label: str
+    value: float
+    color: str
+
+
+@dataclass(frozen=True, slots=True)
+class Stack:
+    label: str
+    segments: tuple[Segment, ...]
+    text: str
+    muted: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class DashboardData:
     engineers: int
     baseline_label: str
@@ -99,7 +122,8 @@ class DashboardData:
     review_cases: int
     routing: RoutingReport
     min_quality: float
-    vendor: Recommendation
+    motion_fits: tuple[MotionFit, ...]
+    decision: Analysis
 
 
 def weekly_windows(window: Window) -> tuple[Window, ...]:
@@ -211,6 +235,47 @@ def bar_chart(
         f'<text x="{width - text_w + 8}" y="{bar_h - 4}" class="bvalue">{escape(b.text)}</text>'
         f"</g>"
         for i, b in enumerate(bars)
+    )
+    return (
+        f'<svg viewBox="0 0 {width} {height}" width="100%" role="img" '
+        f'aria-label="{escape(title)}" xmlns="http://www.w3.org/2000/svg">'
+        f"<title>{escape(title)}</title>{rows}</svg>"
+    )
+
+
+def stacked_bar_chart(
+    stacks: Sequence[Stack],
+    *,
+    title: str,
+    scale: float = 1.0,
+    width: int = 560,
+    label_w: int = 170,
+) -> str:
+    """Horizontal stacked bars: each segment is one additive contribution to the total."""
+    text_w, row_h, bar_h = 70, 30, 18
+    height = row_h * len(stacks) + 4
+    plot_w = width - label_w - text_w
+
+    def segments(stack: Stack) -> str:
+        values = tuple(s.value for s in stack.segments)
+        offsets = tuple(sum(values[:i]) for i in range(len(values)))
+        return "".join(
+            f'<rect x="{_num(label_w + plot_w * min(o / scale, 1.0))}" y="0" '
+            f'width="{_num(plot_w * max(min(s.value / scale, 1.0 - o / scale), 0.0))}" '
+            f'height="{bar_h}" fill="{s.color}"><title>{escape(stack.label)} · '
+            f"{escape(s.label)}: {s.value:.3f}</title></rect>"
+            for o, s in zip(offsets, stack.segments, strict=True)
+        )
+
+    rows = "".join(
+        f'<g transform="translate(0,{i * row_h + 4})"'
+        + (' opacity="0.35"' if st.muted else "")
+        + f'><text x="{label_w - 10}" y="{bar_h - 4}" class="blabel">{escape(st.label)}</text>'
+        f'<rect x="{label_w}" y="0" width="{plot_w}" height="{bar_h}" class="track"/>'
+        f"{segments(st)}"
+        f'<text x="{width - text_w + 8}" y="{bar_h - 4}" class="bvalue">{escape(st.text)}</text>'
+        "</g>"
+        for i, st in enumerate(stacks)
     )
     return (
         f'<svg viewBox="0 0 {width} {height}" width="100%" role="img" '
@@ -394,35 +459,119 @@ def _routing(report: RoutingReport, min_quality: float) -> str:
     )
 
 
-def _vendor(rec: Recommendation) -> str:
-    top = nice_max(max((d.score for d in rec.ranking), default=0.0))
+def _motion_map(fits: Sequence[MotionFit]) -> str:
+    def cell(fit: MotionFit, motion: str) -> str:
+        score = fit.score(motion)
+        pick = " pick" if score is fit.recommended else ""
+        if not score.allowed:
+            return (
+                f'<td class="fit blocked" title="{escape(", ".join(score.blocked_by))}">'
+                f"<s>{score.fit:.2f}</s><small>{escape(score.blocked_by[0])}</small></td>"
+            )
+        alpha = max(min((score.fit - 0.15) / 0.75, 1.0), 0.05)
+        return (
+            f'<td class="fit{pick}" style="background:rgba(37,99,235,{alpha:.2f});'
+            f'color:{"#fff" if alpha > 0.55 else "#0f172a"}">{score.fit:.2f}</td>'
+        )
+
     rows = "".join(
-        f"<tr><td>{escape(d.name)}</td><td>{escape(d.motion)}</td>"
-        f'<td class="barcell">'
-        + bar_chart(
-            (
-                Bar(
-                    "", d.score, PLATFORM_COLOR if d.qualified else BASELINE_COLOR, f"{d.score:.2f}"
-                ),
+        f"<tr><td><strong>{escape(f.capability.name)}</strong>"
+        f'<div class="note">{escape(f.capability.note)}</div></td>'
+        + "".join(cell(f, m) for m in MOTIONS)
+        + f'<td><span class="badge motion">{escape(f.recommended.motion)}</span></td>'
+        f'<td class="why">{escape(f.rationale)}</td></tr>'
+        for f in fits
+    )
+    heads = "".join(f'<th class="fit">{escape(m)}</th>' for m in MOTIONS)
+    return (
+        '<div class="card"><h3>Stage 1 · Motion fit: should we own this capability?</h3>'
+        '<table class="map"><thead><tr><th>Capability</th>'
+        f"{heads}<th>Motion</th><th>Why</th></tr></thead><tbody>{rows}</tbody></table>"
+        '<p class="small">Fit = 0.5 + Σ affinity &times; (attribute &minus; 0.5). '
+        "Darker is a better fit; "
+        "struck-through motions are blocked by a guard. Own the context, the evals and the "
+        "interfaces; rent the rest.</p></div>"
+    )
+
+
+def _contribution_chart(analysis: Analysis) -> str:
+    stacks = tuple(
+        Stack(
+            a.name,
+            tuple(
+                Segment(LABELS[k], v, CRITERION_COLORS[k])
+                for k, v in contributions(a, analysis.weights)
             ),
-            title=f"{d.name} score",
-            scale=top,
-            width=320,
-            label_w=0,
+            f"{analysis.scores[a.name]:.2f}",
+            muted=not a.qualified,
         )
-        + f"</td><td>{d.lock_in_risk:.0%}</td><td>"
-        + (
-            '<span class="badge pass">pass</span>'
-            if d.qualified
-            else "".join(f'<span class="badge fail">{escape(g)}</span>' for g in d.failed_gates)
-        )
-        + "</td></tr>"
-        for d in rec.ranking
+        for a in analysis.ranking
+    )
+    legend = "".join(
+        f'<span class="key"><i style="background:{CRITERION_COLORS[k]}"></i>'
+        f"{escape(LABELS[k])} {analysis.weights.get(k, 0):.2f}</span>"
+        for k in CRITERIA
+    )
+    gated = "".join(
+        f'<span class="badge fail">{escape(a.name)}: {escape(", ".join(a.failed_gates))}</span>'
+        for a in analysis.ranking
+        if not a.qualified
     )
     return (
-        '<div class="card"><table><thead><tr><th>Candidate</th><th>Motion</th><th>Score</th>'
-        f"<th>Lock-in risk</th><th>Hard gates</th></tr></thead><tbody>{rows}</tbody></table>"
-        f'<div class="verdict"><strong>Verdict:</strong> {escape(rec.verdict)}</div></div>'
+        '<div class="card"><h3>Stage 2 · Weighted contribution per criterion '
+        "(evidence-discounted)</h3>"
+        f'<div class="legend">{legend}</div>'
+        + stacked_bar_chart(stacks, title="Contribution breakdown", width=600, label_w=230)
+        + (f'<div class="small">Failed hard gates (faded): {gated}</div>' if gated else "")
+        + "</div>"
+    )
+
+
+def _odds_chart(analysis: Analysis) -> str:
+    p = analysis.spec.policy
+    bars = tuple(
+        Bar(
+            o.name,
+            o.p_win,
+            PLATFORM_COLOR if i == 0 else BASELINE_COLOR,
+            f"{o.p_win:.0%}",
+        )
+        for i, o in enumerate(analysis.odds)
+    )
+    bands = "".join(
+        f"<tr><td>{escape(o.name)}</td><td>{o.p10:.2f}</td><td>{o.p50:.2f}</td>"
+        f"<td>{o.p90:.2f}</td></tr>"
+        for o in analysis.odds
+    )
+    return (
+        f'<div class="card"><h3>Win probability over {p.samples:,} seeded draws</h3>'
+        + bar_chart(bars, title="Win probability", scale=1.0, width=600, label_w=230)
+        + '<table class="compact"><thead><tr><th>Score band</th><th>P10</th><th>P50</th>'
+        f"<th>P90</th></tr></thead><tbody>{bands}</tbody></table>"
+        f'<p class="small">Clear winner at ≥ {p.clear_win_probability:.0%}; otherwise a '
+        "bake-off between contenders.</p></div>"
+    )
+
+
+def _decision(fits: Sequence[MotionFit], analysis: Analysis) -> str:
+    flips = "".join(
+        f"<tr><td>{escape(LABELS[f.criterion])}</td><td>{f.weight:.2f}</td>"
+        f"<td>{escape(f.direction)} {f.threshold:.2f}</td><td>{escape(f.challenger)}</td></tr>"
+        for f in analysis.flips[:3]
+    )
+    why = "".join(f"<li>{escape(line)}</li>" for line in analysis.rationale)
+    return (
+        _motion_map(fits)
+        + '<div class="grid2 gap">'
+        + _contribution_chart(analysis)
+        + _odds_chart(analysis)
+        + "</div>"
+        + f'<div class="card gap"><div class="verdict"><strong>Verdict '
+        f"({escape(analysis.verdict.kind)}):</strong> {escape(analysis.verdict.text)}</div>"
+        '<div class="grid2"><div><h3>What would flip it (nearest weight changes)</h3>'
+        '<table class="compact"><thead><tr><th>Weight</th><th>Now</th><th>Flips if it</th>'
+        f"<th>Winner then</th></tr></thead><tbody>{flips}</tbody></table></div>"
+        f'<div><h3>Rationale</h3><ul class="why">{why}</ul></div></div></div>'
     )
 
 
@@ -469,7 +618,19 @@ td.barcell{width:300px}
 .badge{display:inline-block;border-radius:999px;padding:1px 10px;font-size:12px;font-weight:600;
 margin-right:4px}
 .badge.pass{background:#dcfce7;color:#166534}.badge.fail{background:#fee2e2;color:#991b1b}
-.verdict{margin-top:14px;padding:12px 16px;background:#eff6ff;border-radius:10px;color:#1e3a8a}
+.verdict{margin-bottom:14px;padding:12px 16px;background:#eff6ff;border-radius:10px;color:#1e3a8a}
+.gap{margin-top:14px}
+.small{font-size:12.5px;color:#64748b;margin:8px 0 0}
+.note{font-size:12px;color:#64748b}
+table.map td.fit,table.map th.fit{text-align:center;width:92px;font-weight:600;
+font-variant-numeric:tabular-nums}
+td.pick{outline:3px solid #0f172a;outline-offset:-3px}
+td.blocked{background:#f1f5f9;color:#94a3b8}td.blocked small{display:block;font-size:11px;
+font-weight:400}
+td.why,ul.why{font-size:12.5px;color:#334155}ul.why{margin:0;padding-left:18px}
+ul.why li{margin-bottom:4px}
+table.compact{font-size:13px;margin-top:8px}table.compact td,table.compact th{padding:4px 8px}
+.badge.motion{background:#e0e7ff;color:#3730a3;white-space:nowrap}
 footer{margin-top:40px;font-size:12.5px;color:#64748b}
 """
 
@@ -514,9 +675,11 @@ def render(data: DashboardData) -> str:
                 _routing(data.routing, data.min_quality),
             ),
             _section(
-                "Build vs partner: code review",
-                "Hard gates first, then weighted criteria discounted by lock-in risk.",
-                _vendor(data.vendor),
+                "Build vs partner: make, co-build or buy",
+                "Stage 1 decides whether to own a capability; Stage 2 scores concrete options "
+                f"for {data.decision.spec.capability} on evidence, prices lock-in, and "
+                "stress-tests the winner.",
+                _decision(data.motion_fits, data.decision),
             ),
         )
     )

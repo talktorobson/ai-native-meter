@@ -6,12 +6,15 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable, Sequence
 from datetime import datetime
+from functools import reduce
 from pathlib import Path
 
 from devex import (
     context,
     dashboard,
+    decision,
     metrics,
+    motion_fit,
     review_eval,
     routing,
     synthetic,
@@ -154,23 +157,38 @@ def cmd_route(args: argparse.Namespace) -> str:
     )
 
 
+def _motion_fits(args: argparse.Namespace) -> tuple[motion_fit.MotionFit, ...]:
+    return tuple(map(motion_fit.assess, motion_fit.load_capabilities(args.capabilities)))
+
+
+def _analysis(args: argparse.Namespace, fits: Sequence[motion_fit.MotionFit]) -> decision.Analysis:
+    """Stage 2, with review quality measured live by ``review_eval`` where a candidate names
+    a reviewer, and any ``--weight`` overrides applied (others rescaled to sum to 1)."""
+    measured = {r.reviewer: r.f_beta for r in _review_reports(review_eval.load_cases(args.cases))}
+    spec = vendor_scorecard.load_decision(args.candidates, measured)
+    unknown = sorted({k for k, _ in args.weight} - set(spec.weights))
+    if unknown:
+        raise SystemExit(f"Unknown weight(s): {', '.join(unknown)}; use {', '.join(spec.weights)}")
+    weights = reduce(lambda w, kv: vendor_scorecard.reweight(w, *kv), args.weight, spec.weights)
+    fit = next((f for f in fits if f.capability.name == spec.capability), None)
+    return decision.analyse(spec, fit=fit, weights=weights)
+
+
 def cmd_decide(args: argparse.Namespace) -> str:
-    weights, candidates = vendor_scorecard.load_candidates(args.candidates)
-    rec = vendor_scorecard.decide(candidates, weights)
-    rows = "\n".join(
-        f"| {d.name} | {d.motion} | {d.score:.2f} | {d.lock_in_risk:.0%} | "
-        f"{', '.join(d.failed_gates) or 'pass'} |"
-        for d in rec.ranking
-    )
+    fits = _motion_fits(args)
+    analysis = _analysis(args, fits)
+    if args.memo:
+        return decision.memo(analysis, args.now[:10])
     return "\n".join(
         (
-            "## Build vs partner: code review",
+            "## Build vs partner: motion fit (Stage 1, illustrative)",
             "",
-            "| Candidate | Motion | Score | Lock-in risk | Gates |",
-            "|---|---|---|---|---|",
-            rows,
+            "Fit = 0.5 + sum of affinity x (attribute - 0.5). Struck-through motions are "
+            "blocked by a guard. Own the context, the evals and the interfaces; rent the rest.",
             "",
-            f"**Verdict:** {rec.verdict}",
+            motion_fit.to_markdown(fits),
+            "",
+            decision.to_markdown(analysis),
         )
     )
 
@@ -192,7 +210,7 @@ def dashboard_data(args: argparse.Namespace) -> dashboard.DashboardData:
     before = metrics.scorecard(before_prs, ENGINEERS, q1)
     after = metrics.scorecard(after_prs, ENGINEERS, q2)
     cases = review_eval.load_cases(args.cases)
-    weights, candidates = vendor_scorecard.load_candidates(args.candidates)
+    fits = _motion_fits(args)
     return dashboard.DashboardData(
         engineers=ENGINEERS,
         baseline_label="Q1 2026",
@@ -208,7 +226,8 @@ def dashboard_data(args: argparse.Namespace) -> dashboard.DashboardData:
             routing.load_requests(args.requests), min_quality=args.min_quality
         ),
         min_quality=args.min_quality,
-        vendor=vendor_scorecard.decide(candidates, weights),
+        motion_fits=fits,
+        decision=_analysis(args, fits),
     )
 
 
@@ -219,12 +238,33 @@ def cmd_dashboard(args: argparse.Namespace) -> str:
     return f"Dashboard written to {out}"
 
 
+def _weight(text: str) -> tuple[str, float]:
+    name, sep, value = text.partition("=")
+    try:
+        number = float(value)
+    except ValueError:
+        number = -1.0
+    if not sep or not 0 <= number < 1:
+        raise argparse.ArgumentTypeError(f"expected NAME=VALUE with 0 <= VALUE < 1, got {text!r}")
+    return name, number
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="devex", description=__doc__)
     parser.add_argument("--cases", default=str(DATA / "review_benchmark.json"))
     parser.add_argument("--graph", default=str(DATA / "context_graph.json"))
     parser.add_argument("--requests", default=str(DATA / "routing_requests.json"))
     parser.add_argument("--candidates", default=str(DATA / "vendor_candidates.json"))
+    parser.add_argument("--capabilities", default=str(DATA / "capabilities.json"))
+    parser.add_argument("--memo", action="store_true", help="decide: print an ADR-style memo")
+    parser.add_argument(
+        "--weight",
+        type=_weight,
+        action="append",
+        default=[],
+        metavar="NAME=VALUE",
+        help="decide: override one criterion weight (repeatable); the others rescale",
+    )
     parser.add_argument("--query", default="add idempotency to the batch transfers endpoint")
     parser.add_argument("--budget", type=int, default=400)
     parser.add_argument("--now", default="2026-11-01T00:00:00")

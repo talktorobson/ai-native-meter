@@ -104,6 +104,45 @@ def test_bar_chart_scales_bars_and_caps_overflow():
     assert widths == [pytest.approx(plot_w / 2), pytest.approx(plot_w)]
 
 
+def test_stacked_bar_chart_places_segments_end_to_end_and_caps_at_scale():
+    svg = dashboard.stacked_bar_chart(
+        (
+            dashboard.Stack(
+                "a",
+                (dashboard.Segment("x", 0.25, "#111"), dashboard.Segment("y", 0.5, "#222")),
+                "0.75",
+            ),
+            dashboard.Stack(
+                "b",
+                (dashboard.Segment("x", 0.75, "#111"), dashboard.Segment("y", 0.5, "#222")),
+                "1.25",
+            ),
+        ),
+        title="t",
+        width=300,
+        label_w=100,
+    )
+    ET.fromstring(svg)
+    plot_w = 300 - 100 - 70
+    segs = [
+        (float(x), float(w))
+        for x, w in re.findall(r'<rect x="([\d.]+)" y="0" width="([\d.]+)" height="18" fill', svg)
+    ]
+    assert segs == [
+        (100, pytest.approx(plot_w / 4)),
+        (pytest.approx(100 + plot_w / 4), pytest.approx(plot_w / 2)),
+        (100, pytest.approx(plot_w * 3 / 4)),
+        (pytest.approx(100 + plot_w * 3 / 4), pytest.approx(plot_w / 4)),  # capped
+    ]
+    assert "a · y: 0.500" in svg
+
+
+def test_gated_candidates_are_faded_in_the_contribution_chart(data):
+    html = dashboard.render(data)
+    assert 'opacity="0.35"><text x="220" y="14" class="blabel">Vendor C SaaS' in html
+    assert "Vendor C SaaS: data_residency" in html
+
+
 @pytest.mark.parametrize(
     ("direction", "after", "color"),
     [
@@ -136,7 +175,11 @@ def test_render_is_self_contained_and_covers_every_section(data):
         "Eval-driven model routing",
         "Pass-rate trade-off",
         "Build vs partner",
-        "Verdict:",
+        "Stage 1 · Motion fit",
+        "Weighted contribution per criterion",
+        "Win probability over 2,000 seeded draws",
+        "Verdict (go):",
+        "What would flip it",
     ):
         assert text in html
     assert html.count('class="tile') >= len(dashboard.KPIS)
