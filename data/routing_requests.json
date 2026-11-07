@@ -1,0 +1,18 @@
+[
+  {"prompt": "Fix the typo in the error message of TransferValidator", "input_tokens": 900, "output_tokens": 120},
+  {"prompt": "Add a docstring to compute_fee", "input_tokens": 700, "output_tokens": 150},
+  {"prompt": "Rename variable acct to account_id in this file", "input_tokens": 1200, "output_tokens": 400},
+  {"prompt": "Write unit tests for the installment calculator", "input_tokens": 1800, "output_tokens": 1500},
+  {"prompt": "Add a new field currency to the transfer response and update the schema", "input_tokens": 2500, "output_tokens": 1200},
+  {"prompt": "Implement pagination for the statements endpoint", "input_tokens": 3000, "output_tokens": 2000},
+  {"prompt": "Explain this regex used in the CPF validator", "input_tokens": 400, "output_tokens": 300},
+  {"prompt": "Refactor the ledger posting module to remove the shared mutable state", "input_tokens": 5200, "output_tokens": 4000},
+  {"prompt": "Find the root cause of the flaky integration test in transfers", "input_tokens": 8000, "output_tokens": 2500},
+  {"prompt": "Migrate the batch endpoint to idempotency keys across services", "input_tokens": 9000, "output_tokens": 5000},
+  {"prompt": "Format this file according to the style guide", "input_tokens": 1500, "output_tokens": 1500},
+  {"prompt": "Add input validation for negative amounts in POST /transfers", "input_tokens": 2200, "output_tokens": 900},
+  {"prompt": "Update the comment above the retry loop", "input_tokens": 600, "output_tokens": 100},
+  {"prompt": "Add structured logging to the settlement consumer", "input_tokens": 2000, "output_tokens": 1100},
+  {"prompt": "Design the threat model for the new card tokenization flow", "input_tokens": 4000, "output_tokens": 3500},
+  {"prompt": "Fix lint warnings in the reconciliation job", "input_tokens": 1100, "output_tokens": 600}
+]

@@ -1,0 +1,39 @@
+{
+  "weights": {
+    "review_quality_f05": 0.35,
+    "integration_effort": 0.15,
+    "time_to_value": 0.15,
+    "cost_at_scale": 0.20,
+    "operability": 0.15
+  },
+  "candidates": [
+    {
+      "name": "Vendor A review bot",
+      "motion": "buy",
+      "scores": {"review_quality_f05": 0.78, "integration_effort": 0.9, "time_to_value": 0.95, "cost_at_scale": 0.45, "operability": 0.6},
+      "gates": {"data_residency": true, "soc2": true, "no_training_on_customer_code": true},
+      "lock_in": {"data_export": true, "open_interfaces": false, "model_choice": false, "self_host_option": false, "exit_under_90_days": true}
+    },
+    {
+      "name": "Vendor B co-build",
+      "motion": "partner",
+      "scores": {"review_quality_f05": 0.82, "integration_effort": 0.7, "time_to_value": 0.7, "cost_at_scale": 0.65, "operability": 0.75},
+      "gates": {"data_residency": true, "soc2": true, "no_training_on_customer_code": true},
+      "lock_in": {"data_export": true, "open_interfaces": true, "model_choice": true, "self_host_option": false, "exit_under_90_days": true}
+    },
+    {
+      "name": "In-house reviewer on context layer",
+      "motion": "build",
+      "scores": {"review_quality_f05": 0.7, "integration_effort": 0.5, "time_to_value": 0.4, "cost_at_scale": 0.85, "operability": 0.8},
+      "gates": {"data_residency": true, "soc2": true, "no_training_on_customer_code": true},
+      "lock_in": {"data_export": true, "open_interfaces": true, "model_choice": true, "self_host_option": true, "exit_under_90_days": true}
+    },
+    {
+      "name": "Vendor C SaaS",
+      "motion": "buy",
+      "scores": {"review_quality_f05": 0.88, "integration_effort": 0.95, "time_to_value": 0.95, "cost_at_scale": 0.5, "operability": 0.6},
+      "gates": {"data_residency": false, "soc2": true, "no_training_on_customer_code": true},
+      "lock_in": {"data_export": false, "open_interfaces": false, "model_choice": false, "self_host_option": false, "exit_under_90_days": false}
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+# AI-native developer experience
+
+**A strategy and a working reference implementation for making a large engineering
+organisation measurably faster with AI, without paying for it in quality, cost or
+trust.**
+
+Every CTO wants AI to multiply engineering throughput. Almost nobody has done it at
+scale: even leading companies are far from AI writing most of their production code.
+This repository makes the case for *why* it is worth solving, *why* it is still
+unsolved, and *how* I would lead it, backed by small, tested code for the parts most
+programmes get wrong: measurement, evals, context and cost.
+
+> Context is the platform. Agents are applications. Evals are the governance.
+> Routing is the economics.
+
+```mermaid
+flowchart LR
+    C[Context layer] --> A[Agentic coding]
+    A --> R[Agentic review]
+    R --> D[Deploy & AI SRE]
+    D -- incidents, reverts --> C
+    R -- feedback --> C
+    E[Evals & metrics] -.governs.-> A & R & D
+    M[Routing & token economics] -.funds.-> A & R & D
+```
+
+## Read the case
+
+| # | Document | In one line |
+|---|---|---|
+| 01 | [The case](docs/01-the-case.md) | A ~USD 100M/year prize at 3,500 engineers, and six reasons it is still unsolved |
+| 02 | [Metrics](docs/02-metrics.md) | One north star, four guardrails, automatic Goodhart guards |
+| 03 | [Architecture](docs/03-architecture.md) | Context layer, agentic coding, agentic review, AI SRE, routing, platform |
+| 04 | [Operating model](docs/04-operating-model.md) | Turning borrowed, part-time contributors into a dedicated team, and the first 90 days |
+| 05 | [Build vs partner](docs/05-build-vs-partner.md) | Hard gates, weighted criteria and lock-in risk instead of demo-driven choices |
+| ADR | [Decisions](docs/adr) | Context before agents · precision before recall · route by evals |
+
+## Run the reference implementation
+
+Pure Python 3.11+, no runtime dependencies.
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+pytest -q          # 46 tests
+devex demo         # every module, printed as Markdown
+```
+
+| Command | Module | What it shows |
+|---|---|---|
+| `devex report` | [`metrics.py`](src/devex/metrics.py) | Baseline vs rollout scorecard with Goodhart guards |
+| `devex eval-review` | [`review_eval.py`](src/devex/review_eval.py) | Any review agent scored on a seeded-defect fintech benchmark |
+| `devex context` | [`context.py`](src/devex/context.py) | Curation-aware graph retrieval under a token budget, plus curation lint |
+| `devex route` | [`routing.py`](src/devex/routing.py) | Eval-driven model routing: savings and quality trade-off |
+| `devex decide` | [`vendor_scorecard.py`](src/devex/vendor_scorecard.py) | Build-vs-partner ranking with hard gates and lock-in risk |
+
+Highlights from [`docs/demo-output.md`](docs/demo-output.md) (synthetic data):
+
+- Throughput **+31%** with change failure rate **down** and review latency **−55%**,
+  yet the cost guard fires: token cost per merged PR **+125%**. That is the month-two
+  conversation a platform leader should start, not discover.
+- A precise rule baseline beats a noisy reviewer with the *same recall*
+  (F0.5 0.90 vs 0.61), because noise is what gets reviewers muted.
+- Retrieval pulls the ticket, the incident and the governing ADR into context, and
+  keeps the deprecated design doc out.
+- Eval-driven routing cuts cost **34%** and states the expected quality cost next to it.
+- The best-scoring vendor is disqualified by a data-residency gate; the top two
+  survivors are too close to call, so the verdict is a time-boxed bake-off.
+
+## What this demonstrates
+
+| Capability | Evidence here |
+|---|---|
+| AI developer-tooling strategy at scale | [The case](docs/01-the-case.md), [architecture](docs/03-architecture.md) |
+| Evaluation rigour replacing subjective judgment | `review_eval.py`, `routing.py`, [ADR-0002](docs/adr/0002-precision-over-recall-in-review.md), [ADR-0003](docs/adr/0003-route-by-evals.md) |
+| Context and retrieval infrastructure | `context.py`, [ADR-0001](docs/adr/0001-context-before-agents.md) |
+| Productivity measurement that resists gaming | `metrics.py`, [metrics](docs/02-metrics.md) |
+| Token-cost management | Cost per merged PR guardrail, routing simulator |
+| Vendor partnerships and lock-in management | `vendor_scorecard.py`, [build vs partner](docs/05-build-vs-partner.md) |
+| Building teams from fragmented resourcing | [Operating model](docs/04-operating-model.md) |
+| Regulated, risk-aware delivery | Fintech defect categories, sandbox defaults, staged AI SRE autonomy |
+
+## Honest limits
+
+- All data is synthetic and all numbers are illustrative; they are there to make the
+  reasoning checkable, not to claim results.
+- The retrieval scorer is lexical plus graph traversal. A production system adds
+  embeddings and a learned re-ranker; the contract (provenance, curation weighting,
+  budgets) is what this code is meant to show.
+- The reviewers included are baselines. Real LLM reviewers plug in through the same
+  `Callable[[ReviewCase], Sequence[Finding]]` interface.
+
+## About
+
+Written by [Robson Reis](https://github.com/talktorobson).
+
+<!-- Add 3-4 lines on your own experience leading AI developer tooling here. -->
+
+MIT licensed.

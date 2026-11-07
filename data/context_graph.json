@@ -1,0 +1,31 @@
+{
+  "entities": [
+    {"id": "svc-transfers", "kind": "service", "title": "transfers-service", "text": "Handles instant transfers between accounts. Writes postings to the ledger and publishes TransferSettled events. Requires an idempotency key on every request.", "source": "service-catalog", "owner": "team-payments", "updated_at": "2026-08-01T00:00:00"},
+    {"id": "svc-ledger", "kind": "service", "title": "ledger-service", "text": "Double-entry ledger. Amounts are integer minor units. Postings are append-only and reconciled nightly.", "source": "service-catalog", "owner": "team-core-banking", "updated_at": "2026-06-15T00:00:00"},
+    {"id": "repo-transfers", "kind": "repo", "title": "transfers repository", "text": "Clojure service code for transfers. Tests run with the shared integration harness. Feature flags via the flags library.", "source": "git", "owner": "team-payments", "updated_at": "2026-10-20T00:00:00"},
+    {"id": "api-transfers", "kind": "api", "title": "POST /transfers", "text": "Creates a transfer. Headers: Idempotency-Key (required). Body: source_account, target_account, amount_minor, currency. Returns 409 on duplicate key with different payload.", "source": "openapi", "owner": "team-payments", "updated_at": "2026-09-10T00:00:00"},
+    {"id": "adr-idempotency", "kind": "adr", "title": "ADR-012 Idempotency keys for money movement", "text": "Every money-moving endpoint must accept an idempotency key, persist it for 72 hours and replay the original response on retry. Rationale: clients retry on timeouts and double postings are unrecoverable without manual reconciliation.", "source": "confluence", "owner": "team-core-banking", "updated_at": "2025-03-01T00:00:00"},
+    {"id": "doc-retry-guidelines", "kind": "doc", "title": "Retry and timeout guidelines", "text": "Outbound HTTP calls need explicit timeouts. Retry only idempotent operations, with jittered exponential backoff and a retry budget.", "source": "confluence", "owner": "team-platform", "updated_at": "2026-02-01T00:00:00"},
+    {"id": "doc-legacy-transfers", "kind": "doc", "title": "Transfers v1 design (deprecated)", "text": "Original transfers design without idempotency keys. Retries were handled by the client checking transfer status before retrying.", "source": "confluence", "owner": null, "updated_at": "2023-05-01T00:00:00", "deprecated": true},
+    {"id": "runbook-transfers", "kind": "runbook", "title": "Runbook: transfers latency and duplicate postings", "text": "If duplicate postings are reported, check idempotency key store hit rate, then ledger reconciliation diff. Page team-payments for p95 above 800ms.", "source": "confluence", "owner": "team-payments", "updated_at": "2026-04-01T00:00:00"},
+    {"id": "inc-2041", "kind": "incident", "title": "INC-2041 duplicate transfers after gateway timeout", "text": "A gateway timeout triggered client retries. A new endpoint skipped idempotency key validation and 312 transfers were posted twice. Root cause: missing idempotency check in transfers batch endpoint.", "source": "incident-tool", "owner": null, "updated_at": "2026-09-25T00:00:00"},
+    {"id": "tkt-881", "kind": "ticket", "title": "PAY-881 Add idempotency to batch transfers endpoint", "text": "Follow-up from INC-2041. Batch endpoint must validate and persist idempotency keys per item.", "source": "jira", "owner": null, "updated_at": "2026-10-28T00:00:00"},
+    {"id": "team-payments", "kind": "team", "title": "Payments team", "text": "Owns transfers, payment initiation and the transfers on-call rotation.", "source": "hr-directory", "owner": null, "updated_at": "2026-07-01T00:00:00"},
+    {"id": "team-core-banking", "kind": "team", "title": "Core banking team", "text": "Owns the ledger and reconciliation.", "source": "hr-directory", "owner": null, "updated_at": "2026-07-01T00:00:00"},
+    {"id": "doc-onboarding-snacks", "kind": "doc", "title": "Office snacks policy", "text": "Snacks are restocked on Mondays.", "source": "confluence", "owner": null, "updated_at": "2024-01-01T00:00:00"}
+  ],
+  "edges": [
+    {"src": "team-payments", "dst": "svc-transfers", "relation": "owns"},
+    {"src": "team-core-banking", "dst": "svc-ledger", "relation": "owns"},
+    {"src": "svc-transfers", "dst": "svc-ledger", "relation": "depends_on"},
+    {"src": "repo-transfers", "dst": "svc-transfers", "relation": "implements"},
+    {"src": "api-transfers", "dst": "svc-transfers", "relation": "exposed_by"},
+    {"src": "adr-idempotency", "dst": "api-transfers", "relation": "governs"},
+    {"src": "doc-retry-guidelines", "dst": "adr-idempotency", "relation": "references"},
+    {"src": "doc-legacy-transfers", "dst": "svc-transfers", "relation": "documents"},
+    {"src": "runbook-transfers", "dst": "svc-transfers", "relation": "operates"},
+    {"src": "inc-2041", "dst": "svc-transfers", "relation": "affected"},
+    {"src": "tkt-881", "dst": "inc-2041", "relation": "follows_up"},
+    {"src": "tkt-881", "dst": "repo-transfers", "relation": "changes"}
+  ]
+}

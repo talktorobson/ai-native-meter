@@ -1,0 +1,138 @@
+[
+  {
+    "id": "RB-001",
+    "title": "Payment client adds partner API key",
+    "code": [
+      "import requests",
+      "",
+      "PARTNER_API_KEY = \"demo-not-a-real-key-0000\"",
+      "",
+      "def charge(card_token, amount):",
+      "    return requests.post(URL, json={'token': card_token, 'amount': amount})"
+    ],
+    "defects": [
+      {"line": 3, "category": "secret", "severity": "critical"},
+      {"line": 6, "category": "missing-timeout", "severity": "medium"}
+    ]
+  },
+  {
+    "id": "RB-002",
+    "title": "Statement search by customer name",
+    "code": [
+      "def search_statements(cursor, name):",
+      "    cursor.execute(f\"SELECT * FROM statements WHERE name = '{name}'\")",
+      "    return cursor.fetchall()"
+    ],
+    "defects": [{"line": 2, "category": "sql-injection", "severity": "critical"}]
+  },
+  {
+    "id": "RB-003",
+    "title": "Interest accrual rounding",
+    "code": [
+      "from decimal import Decimal",
+      "",
+      "def accrue(balance_cents: int, rate_bps: int) -> int:",
+      "    balance = float(balance_cents) / 100",
+      "    daily = float(balance) * rate_bps / 10_000 / 365",
+      "    return round(daily * 100)"
+    ],
+    "defects": [{"line": 4, "category": "float-money", "severity": "high"}]
+  },
+  {
+    "id": "RB-004",
+    "title": "KYC webhook logging",
+    "code": [
+      "import logging",
+      "logger = logging.getLogger(__name__)",
+      "",
+      "def on_kyc_event(event):",
+      "    logger.info('kyc approved for cpf=%s', event.cpf)",
+      "    try:",
+      "        publish(event)",
+      "    except Exception:",
+      "        pass"
+    ],
+    "defects": [
+      {"line": 5, "category": "pii-logging", "severity": "high"},
+      {"line": 8, "category": "broad-except", "severity": "medium"}
+    ]
+  },
+  {
+    "id": "RB-005",
+    "title": "Clean: typed ledger posting",
+    "code": [
+      "from decimal import Decimal",
+      "",
+      "def post(ledger, account_id: str, amount: Decimal) -> None:",
+      "    if amount <= 0:",
+      "        raise ValueError('amount must be positive')",
+      "    ledger.append((account_id, amount))"
+    ],
+    "defects": []
+  },
+  {
+    "id": "RB-006",
+    "title": "Clean: parametrised query with timeout-bound client",
+    "code": [
+      "import requests",
+      "",
+      "def fetch_limits(cursor, customer_id):",
+      "    cursor.execute('SELECT limit FROM limits WHERE id = %s', (customer_id,))",
+      "    rows = cursor.fetchall()",
+      "    requests.get(AUDIT_URL, params={'id': customer_id}, timeout=2)",
+      "    return rows"
+    ],
+    "defects": []
+  },
+  {
+    "id": "RB-007",
+    "title": "Fee calculation for card installments",
+    "code": [
+      "def installment_fee(total, installments):",
+      "    fee = float(total) * 0.0199 * installments",
+      "    return fee"
+    ],
+    "defects": [{"line": 2, "category": "float-money", "severity": "high"}]
+  },
+  {
+    "id": "RB-008",
+    "title": "Report export with concatenated filter",
+    "code": [
+      "def export(cursor, region):",
+      "    query = 'SELECT * FROM txns WHERE region = ' + region",
+      "    cursor.execute(query)",
+      "    return cursor.fetchall()"
+    ],
+    "defects": [{"line": 2, "category": "sql-injection", "severity": "critical"}]
+  },
+  {
+    "id": "RB-009",
+    "title": "Clean: password policy text",
+    "code": [
+      "PASSWORD_HELP = 'Use at least 12 characters.'",
+      "",
+      "def validate(password: str) -> bool:",
+      "    return len(password) >= 12"
+    ],
+    "defects": []
+  },
+  {
+    "id": "RB-010",
+    "title": "Retry wrapper for fraud score",
+    "code": [
+      "import requests",
+      "",
+      "def fraud_score(payload):",
+      "    for _ in range(3):",
+      "        try:",
+      "            return requests.post(FRAUD_URL, json=payload).json()",
+      "        except:",
+      "            continue",
+      "    return None"
+    ],
+    "defects": [
+      {"line": 6, "category": "missing-timeout", "severity": "medium"},
+      {"line": 7, "category": "broad-except", "severity": "medium"}
+    ]
+  }
+]
